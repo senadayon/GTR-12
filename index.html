@@ -103,7 +103,7 @@
             if (isAdmin) li.classList.add('msg-admin');
             
             const parsedMsg = parseMarkdown(msg);
-            li.innerHTML = `<strong>${username}${isAdmin ? ' [👑管理者]' : ''}</strong>: ${parsedMsg} <div class="msg-time">${time} <span style="color:#007bff;">✓既読</span></div>`;
+            li.innerHTML = `<strong>${username}${isAdmin ? ' [ヽ(ﾟ∀｡)ﾉｳｪ]' : ''}</strong>: ${parsedMsg} <div class="msg-time">${time} <span style="color:#007bff;">✓既読</span></div>`;
             
             document.getElementById('messages').appendChild(li);
             autoScroll();
