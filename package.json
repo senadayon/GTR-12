@@ -1,7 +1,7 @@
 {
-  "name": "gtr-12-chat",
+  "name": "hima-tubusi-chat",
   "version": "1.0.0",
-  "description": "Realtime Chat App",
+  "description": "暇潰しチャット",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
