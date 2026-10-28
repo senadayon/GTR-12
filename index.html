@@ -1,153 +1,373 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>Chat</title>
-    <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f3; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        #chat-container { width: 100%; max-width: 800px; background: white; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); overflow: hidden; display: none; }
-        #login-container { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 320px; text-align: center; }
-        input, button { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
-        button { background: #007bff; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #0056b3; }
-        #messages { height: 400px; overflow-y: auto; padding: 20px; border-bottom: 1px solid #eee; background: #f9f9f9; list-style: none; margin: 0; }
-        #messages li { margin-bottom: 12px; padding: 8px 12px; border-radius: 8px; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); max-width: 70%; word-break: break-all; }
-        .msg-admin { border-left: 5px solid #dc3545; background: #fff5f5 !important; }
-        .msg-system { background: #e2e3e5 !important; color: #383d41; text-align: center; max-width: 100% !important; font-size: 12px; }
-        .msg-time { font-size: 10px; color: #999; margin-top: 4px; text-align: right; }
-        #input-area { display: flex; padding: 10px; background: #fff; }
-        #m { flex-grow: 1; margin: 0 10px 0 0; }
-        #send-btn { width: 100px; margin: 0; }
-        #typing-indicator { padding: 5px 20px; font-size: 12px; color: #777; height: 15px; background: #f9f9f9; }
-        #admin-panel { padding: 15px; background: #f1f3f5; border-top: 1px solid #ddd; display: none; }
-        .admin-grid { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; }
-        .admin-grid select, .admin-grid input, .admin-grid button { margin: 0; padding: 8px; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>暇潰しチャット</title>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #17191f;
+    color: #fff;
+}
+
+header {
+    background: #242731;
+    padding: 15px;
+    text-align: center;
+    font-size: 22px;
+    font-weight: bold;
+}
+
+#login {
+    max-width: 400px;
+    margin: 80px auto;
+    padding: 25px;
+    background: #242731;
+    border-radius: 12px;
+}
+
+input, button {
+    padding: 11px;
+    border: none;
+    border-radius: 6px;
+    margin: 4px 0;
+}
+
+input {
+    background: #343844;
+    color: white;
+    width: 100%;
+}
+
+button {
+    background: #5865f2;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    opacity: .85;
+}
+
+#chat {
+    display: none;
+    height: calc(100vh - 60px);
+}
+
+.layout {
+    display: flex;
+    height: 100%;
+}
+
+#messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+}
+
+.message {
+    background: #242731;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 8px;
+    overflow-wrap: anywhere;
+}
+
+.message small {
+    color: #aaa;
+}
+
+#sidebar {
+    width: 230px;
+    background: #20232b;
+    padding: 12px;
+    overflow-y: auto;
+}
+
+#userList {
+    padding-left: 18px;
+}
+
+#bottom {
+    display: flex;
+    padding: 10px;
+    background: #242731;
+    gap: 8px;
+}
+
+#messageInput {
+    flex: 1;
+}
+
+#adminPanel {
+    display: none;
+    background: #292d38;
+    padding: 12px;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+#pinned {
+    background: #413b23;
+    padding: 10px;
+    display: none;
+}
+
+#notice {
+    padding: 8px;
+    color: #ffcc66;
+}
+
+@media (max-width: 650px) {
+    #sidebar {
+        width: 145px;
+        font-size: 13px;
+    }
+}
+</style>
 </head>
+
 <body>
 
-    <div id="login-container">
-        <h2>ログイン</h2>
-        <input id="username" type="text" placeholder="ユーザー名を入力" required>
-        <input id="adminCode" type="password" placeholder="管理者コード（コードを知らない人は書くな！）">
-        <button onclick="joinChat()">ログイン</button>
-    </div>
+<header id="roomTitle">チャットルーム</header>
 
-    <div id="chat-container">
-        <ul id="messages"></ul>
-        <div id="typing-indicator"></div>
-        <div id="input-area">
-            <input id="m" autocomplete="off" placeholder="メッセージを入力... (Markdown対応)" oninput="handleTyping()"/>
-            <button id="send-btn" onclick="sendMessage()">送信</button>
-        </div>
+<div id="login">
+    <h2>チャットに参加</h2>
 
-        <div id="admin-panel">
-            <strong>🛠️ 管理者コントロールパネル</strong>
-            <div class="admin-grid" style="margin-top: 8px;">
-                <select id="admin-command">
-                    <option value="kick">Kick (一時追放)</option>
-                    <option value="ban">BAN (ユーザー名)</option>
-                    <option value="unban">BAN解除 (ユーザー名)</option>
-                    <option value="ipban">IP BAN (ユーザー名またはIP)</option>
-                    <option value="unbanip">IP BAN解除 (IPアドレス)</option>
-                    <option value="iplist">IPリスト & BANリストを表示</option>
-                </select>
-                <input id="admin-target" type="text" placeholder="対象ユーザー名 または IP">
-                <button onclick="executeAdminCommand()" style="background: #dc3545;">実行</button>
+    <input id="username" placeholder="ユーザー名" maxlength="20">
+    <input id="adminCode" type="password" placeholder="管理者パスワード（管理者のみ）">
+
+    <button onclick="joinChat()">参加する</button>
+    <div id="loginError"></div>
+</div>
+
+<div id="chat">
+    <div class="layout">
+
+        <main style="flex:1;display:flex;flex-direction:column;min-width:0">
+
+            <div id="pinned"></div>
+
+            <div id="notice"></div>
+
+            <div id="messages"></div>
+
+            <div id="bottom">
+                <input id="messageInput" placeholder="メッセージを入力..." maxlength="1000">
+                <button onclick="sendMessage()">送信</button>
             </div>
-        </div>
+
+        </main>
+
+        <aside id="sidebar">
+            <h3>オンライン</h3>
+            <ul id="userList"></ul>
+
+            <button onclick="toggleAdmin()">管理者パネル</button>
+
+            <div id="adminPanel">
+                <h3>管理者機能</h3>
+
+                <label>対象ユーザー</label>
+                <input id="targetUser" placeholder="ユーザー名">
+
+                <button onclick="adminAction('kick')">キック</button>
+                <button onclick="adminAction('ban')">BAN</button>
+                <button onclick="adminAction('unban')">BAN解除</button>
+                <button onclick="adminAction('mute')">ミュート</button>
+                <button onclick="adminAction('unmute')">ミュート解除</button>
+
+                <hr>
+
+                <button onclick="adminAction('lock')">チャットロック</button>
+                <button onclick="adminAction('unlock')">ロック解除</button>
+
+                <label>スローモード（秒）</label>
+                <input id="slowValue" type="number" min="0" max="60" value="0">
+                <button onclick="adminAction('slowmode', document.getElementById('slowValue').value)">設定</button>
+
+                <hr>
+
+                <label>固定メッセージ</label>
+                <input id="pinValue" placeholder="固定する文章">
+                <button onclick="adminAction('pin', document.getElementById('pinValue').value)">固定</button>
+                <button onclick="adminAction('unpin')">固定解除</button>
+
+                <hr>
+
+                <label>NGワード</label>
+                <input id="ngValue" placeholder="NGワード">
+                <button onclick="adminAction('ng_add', document.getElementById('ngValue').value)">追加</button>
+                <button onclick="adminAction('ng_remove', document.getElementById('ngValue').value)">削除</button>
+
+                <hr>
+
+                <button onclick="adminAction('clear')">全メッセージ削除</button>
+            </div>
+        </aside>
+
     </div>
+</div>
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        let typingTimeout;
+<script>
+const socket = io();
 
-        function joinChat() {
-            const username = document.getElementById('username').value;
-            const adminCode = document.getElementById('adminCode').value;
-            socket.emit('join', { username, adminCode });
-        }
+let myUsername = '';
+let myRole = 'Regular';
 
-        socket.on('login_success', ({ username, isAdmin }) => {
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('chat-container').style.display = 'block';
-            if (isAdmin) {
-                document.getElementById('admin-panel').style.display = 'block';
-            }
-        });
+function joinChat() {
+    const username = document.getElementById('username').value.trim();
+    const adminCode = document.getElementById('adminCode').value;
 
-        socket.on('auth_error', (errorMsg) => {
-            alert(errorMsg);
-            location.reload();
-        });
+    if (!username) {
+        document.getElementById('loginError').textContent =
+            'ユーザー名を入力してください';
+        return;
+    }
 
-        function sendMessage() {
-            const input = document.getElementById('m');
-            if (input.value.trim() !== '') {
-                socket.emit('chat_message', input.value);
-                input.value = '';
-                socket.emit('stop_typing');
-            }
-        }
+    myUsername = username;
 
-        function parseMarkdown(text) {
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/~~(.*?)~~/g, '<del>$1</del>');
-        }
+    socket.emit('join', {
+        username,
+        adminCode
+    });
+}
 
-        socket.on('chat_message', ({ username, msg, isAdmin, time }) => {
-            const li = document.createElement('li');
-            if (isAdmin) li.classList.add('msg-admin');
-            
-            const parsedMsg = parseMarkdown(msg);
-            li.innerHTML = `<strong>${username}${isAdmin ? 'ナ' : ''}</strong>: ${parsedMsg} <div class="msg-time">${time} <span style="color:#007bff;">✓既読</span></div>`;
-            
-            document.getElementById('messages').appendChild(li);
-            autoScroll();
-        });
+socket.on('joined', (data) => {
+    myUsername = data.username;
+    myRole = data.role;
 
-        socket.on('system_message', (msg) => {
-            const li = document.createElement('li');
-            li.classList.add('msg-system');
-            li.innerText = msg;
-            document.getElementById('messages').appendChild(li);
-            autoScroll();
-        });
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('chat').style.display = 'block';
 
-        function handleTyping() {
-            socket.emit('typing');
-            clearTimeout(typingTimeout);
-            typingTimeout = setTimeout(() => {
-                socket.emit('stop_typing');
-            }, 1000);
-        }
+    document.getElementById('roomTitle').textContent =
+        'チャットルーム - ' + myUsername + ' (' + myRole + ')';
 
-        socket.on('user_typing', (username) => {
-            document.getElementById('typing-indicator').innerText = `${username} が入力中...`;
-        });
+    document.getElementById('adminPanel').style.display =
+        myRole === 'Owner' ? 'block' : 'none';
 
-        socket.on('user_stop_typing', () => {
-            document.getElementById('typing-indicator').innerText = '';
-        });
+    document.getElementById('messages').replaceChildren();
 
-        function autoScroll() {
-            const elem = document.getElementById('messages');
-            elem.scrollTop = elem.scrollHeight;
-        }
+    if (Array.isArray(data.messages)) {
+        data.messages.forEach(addMessage);
+    }
+});
 
-        function executeAdminCommand() {
-            const command = document.getElementById('admin-command').value;
-            const target = document.getElementById('admin-target').value;
-            socket.emit('admin_command', { command, target });
-            document.getElementById('admin-target').value = '';
-        }
+socket.on('system_message', (text) => {
+    document.getElementById('notice').textContent = text;
+});
 
-        document.getElementById('m').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') sendMessage();
-        });
-    </script>
+socket.on('chat_message', addMessage);
+
+socket.on('user_list', (users) => {
+    const list = document.getElementById('userList');
+    list.replaceChildren();
+
+    users.forEach(user => {
+        const item = document.createElement('li');
+        item.textContent = user.username + ' (' + user.role + ')';
+        list.appendChild(item);
+    });
+});
+
+socket.on('pinned_message', (text) => {
+    const pinned = document.getElementById('pinned');
+
+    if (text) {
+        pinned.style.display = 'block';
+        pinned.textContent = '📌 ' + text;
+    } else {
+        pinned.style.display = 'none';
+        pinned.textContent = '';
+    }
+});
+
+socket.on('clear_messages', () => {
+    document.getElementById('messages').replaceChildren();
+});
+
+function addMessage(message) {
+    const area = document.getElementById('messages');
+    const box = document.createElement('div');
+    box.className = 'message';
+
+    const header = document.createElement('div');
+    const name = document.createElement('strong');
+
+    name.textContent = message.username + ' ';
+    header.appendChild(name);
+
+    const role = document.createElement('small');
+    role.textContent = '[' + (message.role || 'Regular') + '] ';
+    header.appendChild(role);
+
+    const time = document.createElement('small');
+    time.textContent = message.time || '';
+    header.appendChild(time);
+
+    const content = document.createElement('div');
+    content.textContent = message.text;
+
+    box.appendChild(header);
+    box.appendChild(content);
+    area.appendChild(box);
+
+    area.scrollTop = area.scrollHeight;
+}
+
+function sendMessage() {
+    const input = document.getElementById('messageInput');
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    socket.emit('chat_message', text);
+    input.value = '';
+    input.focus();
+}
+
+function adminAction(action, value = '') {
+    if (myRole !== 'Owner') {
+        alert('管理者権限が必要です');
+        return;
+    }
+
+    const target = document.getElementById('targetUser').value.trim();
+
+    socket.emit('admin_action', {
+        action,
+        target,
+        value
+    });
+}
+
+function toggleAdmin() {
+    if (myRole !== 'Owner') {
+        alert('管理者専用機能です');
+        return;
+    }
+
+    const panel = document.getElementById('adminPanel');
+
+    panel.style.display =
+        panel.style.display === 'none' ? 'block' : 'none';
+}
+
+document.getElementById('messageInput').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+});
+</script>
+
 </body>
 </html>
