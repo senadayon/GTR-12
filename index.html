@@ -127,10 +127,30 @@ button:hover {
     color: #ffcc66;
 }
 
+#rankValue {
+    width: 100%;
+    padding: 10px;
+    border: 0;
+    border-radius: 6px;
+    margin: 4px 0;
+    background: #343844;
+    color: white;
+}
+
+hr {
+    border: 0;
+    border-top: 1px solid #444955;
+    margin: 14px 0;
+}
+
 @media (max-width: 650px) {
     #sidebar {
         width: 145px;
         font-size: 13px;
+    }
+
+    #bottom button {
+        padding: 8px;
     }
 }
 </style>
@@ -143,10 +163,20 @@ button:hover {
 <div id="login">
     <h2>チャットに参加</h2>
 
-    <input id="username" placeholder="ユーザー名" maxlength="20">
-    <input id="adminCode" type="password" placeholder="管理者パスワード（管理者のみ）">
+    <input
+        id="username"
+        placeholder="ユーザー名"
+        maxlength="20"
+    >
+
+    <input
+        id="adminCode"
+        type="password"
+        placeholder="管理者パスワード（管理者のみ）"
+    >
 
     <button onclick="joinChat()">参加する</button>
+
     <div id="loginError"></div>
 </div>
 
@@ -162,57 +192,174 @@ button:hover {
             <div id="messages"></div>
 
             <div id="bottom">
-                <input id="messageInput" placeholder="メッセージを入力..." maxlength="1000">
+                <input
+                    id="messageInput"
+                    placeholder="メッセージを入力..."
+                    maxlength="1000"
+                >
+
                 <button onclick="sendMessage()">送信</button>
             </div>
 
         </main>
 
         <aside id="sidebar">
+
             <h3>オンライン</h3>
+
             <ul id="userList"></ul>
 
-            <button onclick="toggleAdmin()">管理者パネル</button>
+            <button onclick="toggleAdmin()">
+                管理者パネル
+            </button>
 
             <div id="adminPanel">
+
                 <h3>管理者機能</h3>
 
-                <label>対象ユーザー</label>
-                <input id="targetUser" placeholder="ユーザー名">
+                <label for="targetUser">対象ユーザー</label>
 
-                <button onclick="adminAction('kick')">キック</button>
-                <button onclick="adminAction('ban')">BAN</button>
-                <button onclick="adminAction('unban')">BAN解除</button>
-                <button onclick="adminAction('mute')">ミュート</button>
-                <button onclick="adminAction('unmute')">ミュート解除</button>
+                <input
+                    id="targetUser"
+                    placeholder="ユーザー名"
+                >
 
-                <hr>
+                <button onclick="adminAction('kick')">
+                    キック
+                </button>
 
-                <button onclick="adminAction('lock')">チャットロック</button>
-                <button onclick="adminAction('unlock')">ロック解除</button>
+                <button onclick="adminAction('ban')">
+                    BAN
+                </button>
 
-                <label>スローモード（秒）</label>
-                <input id="slowValue" type="number" min="0" max="60" value="0">
-                <button onclick="adminAction('slowmode', document.getElementById('slowValue').value)">設定</button>
+                <button onclick="adminAction('unban')">
+                    BAN解除
+                </button>
 
-                <hr>
+                <button onclick="adminAction('mute')">
+                    ミュート
+                </button>
 
-                <label>固定メッセージ</label>
-                <input id="pinValue" placeholder="固定する文章">
-                <button onclick="adminAction('pin', document.getElementById('pinValue').value)">固定</button>
-                <button onclick="adminAction('unpin')">固定解除</button>
-
-                <hr>
-
-                <label>NGワード</label>
-                <input id="ngValue" placeholder="NGワード">
-                <button onclick="adminAction('ng_add', document.getElementById('ngValue').value)">追加</button>
-                <button onclick="adminAction('ng_remove', document.getElementById('ngValue').value)">削除</button>
+                <button onclick="adminAction('unmute')">
+                    ミュート解除
+                </button>
 
                 <hr>
 
-                <button onclick="adminAction('clear')">全メッセージ削除</button>
+                <h4>ランク変更</h4>
+
+                <label for="rankValue">
+                    変更するランク
+                </label>
+
+                <select id="rankValue">
+                    <option value="Admin">Admin</option>
+                    <option value="Moderator">Moderator</option>
+                    <option value="Member">Member</option>
+                    <option value="Regular" selected>Regular</option>
+                </select>
+
+                <button
+                    onclick="adminAction(
+                        'rank',
+                        document.getElementById('rankValue').value
+                    )"
+                >
+                    ランクを変更
+                </button>
+
+                <hr>
+
+                <button onclick="adminAction('lock')">
+                    チャットロック
+                </button>
+
+                <button onclick="adminAction('unlock')">
+                    ロック解除
+                </button>
+
+                <hr>
+
+                <label for="slowValue">
+                    スローモード（秒）
+                </label>
+
+                <input
+                    id="slowValue"
+                    type="number"
+                    min="0"
+                    max="60"
+                    value="0"
+                >
+
+                <button
+                    onclick="adminAction(
+                        'slowmode',
+                        document.getElementById('slowValue').value
+                    )"
+                >
+                    スローモード設定
+                </button>
+
+                <hr>
+
+                <label for="pinValue">
+                    固定メッセージ
+                </label>
+
+                <input
+                    id="pinValue"
+                    placeholder="固定する文章"
+                >
+
+                <button
+                    onclick="adminAction(
+                        'pin',
+                        document.getElementById('pinValue').value
+                    )"
+                >
+                    固定
+                </button>
+
+                <button onclick="adminAction('unpin')">
+                    固定解除
+                </button>
+
+                <hr>
+
+                <label for="ngValue">NGワード</label>
+
+                <input
+                    id="ngValue"
+                    placeholder="NGワード"
+                >
+
+                <button
+                    onclick="adminAction(
+                        'ng_add',
+                        document.getElementById('ngValue').value
+                    )"
+                >
+                    NGワード追加
+                </button>
+
+                <button
+                    onclick="adminAction(
+                        'ng_remove',
+                        document.getElementById('ngValue').value
+                    )"
+                >
+                    NGワード削除
+                </button>
+
+                <hr>
+
+                <button onclick="adminAction('clear')">
+                    全メッセージ削除
+                </button>
+
             </div>
+
         </aside>
 
     </div>
@@ -224,13 +371,18 @@ const socket = io();
 let myUsername = '';
 let myRole = 'Regular';
 
+// 入室
 function joinChat() {
-    const username = document.getElementById('username').value.trim();
-    const adminCode = document.getElementById('adminCode').value;
+    const username =
+        document.getElementById('username').value.trim();
+
+    const adminCode =
+        document.getElementById('adminCode').value;
 
     if (!username) {
         document.getElementById('loginError').textContent =
             'ユーザー名を入力してください';
+
         return;
     }
 
@@ -242,106 +394,191 @@ function joinChat() {
     });
 }
 
+// 入室完了
 socket.on('joined', (data) => {
     myUsername = data.username;
     myRole = data.role;
 
     document.getElementById('login').style.display = 'none';
+
     document.getElementById('chat').style.display = 'block';
 
-    document.getElementById('roomTitle').textContent =
-        'チャットルーム - ' + myUsername + ' (' + myRole + ')';
+    updateRoomTitle();
 
-    document.getElementById('adminPanel').style.display =
-        myRole === 'Owner' ? 'block' : 'none';
+    updateAdminPanel();
 
     document.getElementById('messages').replaceChildren();
 
     if (Array.isArray(data.messages)) {
         data.messages.forEach(addMessage);
     }
+
+    updatePinnedMessage(data.pinnedMessage);
 });
 
+// ルームタイトル
+function updateRoomTitle() {
+    document.getElementById('roomTitle').textContent =
+        'チャットルーム - ' +
+        myUsername +
+        ' (' +
+        myRole +
+        ')';
+}
+
+// 管理者パネルの表示
+function updateAdminPanel() {
+    const panel = document.getElementById('adminPanel');
+
+    const adminButton =
+        document.querySelector('#sidebar > button');
+
+    if (myRole === 'Owner') {
+        panel.style.display = 'none';
+
+        adminButton.style.display = 'block';
+    } else {
+        panel.style.display = 'none';
+
+        adminButton.style.display = 'none';
+    }
+}
+
+// システムメッセージ
 socket.on('system_message', (text) => {
     document.getElementById('notice').textContent = text;
 });
 
-socket.on('chat_message', addMessage);
+// ランク変更通知
+socket.on('role_updated', (data) => {
+    if (data.username !== myUsername) {
+        return;
+    }
 
+    myRole = data.role;
+
+    updateRoomTitle();
+
+    updateAdminPanel();
+
+    document.getElementById('notice').textContent =
+        'あなたのランクが ' +
+        myRole +
+        ' に変更されました';
+});
+
+// チャットメッセージ
+socket.on('chat_message', (message) => {
+    addMessage(message);
+});
+
+// オンラインユーザー一覧
 socket.on('user_list', (users) => {
     const list = document.getElementById('userList');
+
     list.replaceChildren();
 
     users.forEach(user => {
         const item = document.createElement('li');
-        item.textContent = user.username + ' (' + user.role + ')';
+
+        item.textContent =
+            user.username + ' (' + user.role + ')';
+
         list.appendChild(item);
     });
 });
 
+// 固定メッセージ
 socket.on('pinned_message', (text) => {
+    updatePinnedMessage(text);
+});
+
+function updatePinnedMessage(text) {
     const pinned = document.getElementById('pinned');
 
     if (text) {
         pinned.style.display = 'block';
+
         pinned.textContent = '📌 ' + text;
     } else {
         pinned.style.display = 'none';
+
         pinned.textContent = '';
     }
-});
+}
 
+// メッセージ全削除
 socket.on('clear_messages', () => {
     document.getElementById('messages').replaceChildren();
 });
 
+// メッセージ表示
 function addMessage(message) {
     const area = document.getElementById('messages');
+
     const box = document.createElement('div');
+
     box.className = 'message';
 
     const header = document.createElement('div');
+
     const name = document.createElement('strong');
 
     name.textContent = message.username + ' ';
+
     header.appendChild(name);
 
     const role = document.createElement('small');
-    role.textContent = '[' + (message.role || 'Regular') + '] ';
+
+    role.textContent =
+        '[' + (message.role || 'Regular') + '] ';
+
     header.appendChild(role);
 
     const time = document.createElement('small');
+
     time.textContent = message.time || '';
+
     header.appendChild(time);
 
     const content = document.createElement('div');
+
     content.textContent = message.text;
 
     box.appendChild(header);
+
     box.appendChild(content);
+
     area.appendChild(box);
 
     area.scrollTop = area.scrollHeight;
 }
 
+// メッセージ送信
 function sendMessage() {
     const input = document.getElementById('messageInput');
+
     const text = input.value.trim();
 
     if (!text) return;
 
     socket.emit('chat_message', text);
+
     input.value = '';
+
     input.focus();
 }
 
+// 管理者操作
 function adminAction(action, value = '') {
     if (myRole !== 'Owner') {
         alert('管理者権限が必要です');
+
         return;
     }
 
-    const target = document.getElementById('targetUser').value.trim();
+    const target =
+        document.getElementById('targetUser').value.trim();
 
     socket.emit('admin_action', {
         action,
@@ -350,22 +587,44 @@ function adminAction(action, value = '') {
     });
 }
 
+// 管理者パネル開閉
 function toggleAdmin() {
     if (myRole !== 'Owner') {
         alert('管理者専用機能です');
+
         return;
     }
 
     const panel = document.getElementById('adminPanel');
 
     panel.style.display =
-        panel.style.display === 'none' ? 'block' : 'none';
+        panel.style.display === 'none'
+            ? 'block'
+            : 'none';
 }
 
-document.getElementById('messageInput').addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') {
-        sendMessage();
-    }
+// Enterキーで送信
+document
+    .getElementById('messageInput')
+    .addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            sendMessage();
+        }
+    });
+
+// ユーザー名入力欄でEnterを押しても入室
+document
+    .getElementById('username')
+    .addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            joinChat();
+        }
+    });
+
+// ログインエラー表示
+socket.on('connect_error', () => {
+    document.getElementById('loginError').textContent =
+        'サーバーに接続できません。時間をおいて再試行してください。';
 });
 </script>
 
