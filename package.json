@@ -1,5 +1,5 @@
 {
-  "name": "himatsubushi-chat",
+  "name": "minnit-style-chat",
   "version": "1.0.0",
   "description": "暇潰しチャット",
   "main": "server.js",
@@ -9,5 +9,8 @@
   "dependencies": {
     "express": "^4.21.2",
     "socket.io": "^4.8.1"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
