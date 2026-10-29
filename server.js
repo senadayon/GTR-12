@@ -240,6 +240,11 @@ app.use(express.static(
     path.join(__dirname, 'public')
 ));
 
+// トップページを表示
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 app.get('/health', (req, res) => {
     res.json({
         ok: true
