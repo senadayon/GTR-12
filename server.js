@@ -2,104 +2,286 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
+const fs = require('fs');
 const crypto = require('crypto');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
+const PORT = process.env.PORT || 3000;
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
+const DATA_FILE = path.join(__dirname, 'data.json');
 
-if (!ADMIN_SECRET || ADMIN_SECRET.length < 8) {
-    console.error(
-        'ADMIN_SECRETに8文字以上の秘密の文字列を設定してください'
-    );
+if (!ADMIN_SECRET || ADMIN_SECRET.length < 16) {
+    console.error('ADMIN_SECRETに16文字以上の秘密の文字列を設定してください');
     process.exit(1);
 }
 
-const PORT = process.env.PORT || 3000;
-
-// ユーザー管理
-const users = new Map();
-const bannedUsers = new Set();
-const mutedUsers = new Set();
-
-// チャット設定
-let chatLocked = false;
-let slowMode = 0;
-let pinnedMessage = null;
-let ngWords = [];
-
-// メッセージ保存
-const messages = [];
-const MAX_MESSAGES = 200;
-
-// 管理ログ
-const adminLogs = [];
-
-// ランク設定
-const ALLOWED_ROLES = new Set([
+const ROLES = [
+    'Owner',
     'Admin',
     'Moderator',
     'Member',
     'Regular'
-]);
+];
 
-// HTML配信
-app.use(express.static(path.join(__dirname)));
+const PERMISSION_LABELS = {
+    kick: 'ユーザーをキック',
+    ban: 'ユーザーをBAN',
+    unban: 'BAN解除',
+    mute: 'ユーザーをミュート',
+    unmute: 'ミュート解除',
+    lock: 'チャットをロック',
+    unlock: 'ロック解除',
+    slowmode: 'スローモード設定',
+    pin: 'メッセージ固定',
+    unpin: '固定解除',
+    ng_add: 'NGワード追加',
+    ng_remove: 'NGワード削除',
+    clear: '全メッセージ削除'
+};
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+const PERMISSION_KEYS = Object.keys(PERMISSION_LABELS);
+
+const DEFAULT_PERMISSIONS = {
+    Owner: Object.fromEntries(
+        PERMISSION_KEYS.map(key => [key, true])
+    ),
+
+    Admin: Object.fromEntries(
+        PERMISSION_KEYS.map(key => [key, true])
+    ),
+
+    Moderator: Object.fromEntries(
+        PERMISSION_KEYS.map(key => [
+            key,
+            [
+                'kick',
+                'mute',
+                'unmute',
+                'slowmode',
+                'pin',
+                'unpin'
+            ].includes(key)
+        ])
+    ),
+
+    Member: Object.fromEntries(
+        PERMISSION_KEYS.map(key => [key, false])
+    ),
+
+    Regular: Object.fromEntries(
+        PERMISSION_KEYS.map(key => [key, false])
+    )
+};
+
+function defaultData() {
+    return {
+        rolesByUsername: {},
+        permissions: JSON.parse(
+            JSON.stringify(DEFAULT_PERMISSIONS)
+        ),
+        bannedUsers: [],
+        mutedUsers: [],
+        ngWords: [],
+        messages: [],
+        chatLocked: false,
+        slowMode: 0,
+        pinnedMessage: null,
+        adminLogs: []
+    };
+}
+
+function loadData() {
+    try {
+        if (!fs.existsSync(DATA_FILE)) {
+            return defaultData();
+        }
+
+        const raw = JSON.parse(
+            fs.readFileSync(DATA_FILE, 'utf8')
+        );
+
+        const data = {
+            ...defaultData(),
+            ...raw
+        };
+
+        data.permissions = {
+            ...DEFAULT_PERMISSIONS,
+            ...(raw.permissions || {})
+        };
+
+        for (const role of ROLES) {
+            data.permissions[role] = {
+                ...DEFAULT_PERMISSIONS[role],
+                ...(data.permissions[role] || {})
+            };
+
+            for (const key of PERMISSION_KEYS) {
+                if (role === 'Owner') {
+                    data.permissions[role][key] = true;
+                } else if (role === 'Regular') {
+                    data.permissions[role][key] = false;
+                } else {
+                    data.permissions[role][key] =
+                        data.permissions[role][key] === true;
+                }
+            }
+        }
+
+        if (
+            !data.rolesByUsername ||
+            typeof data.rolesByUsername !== 'object'
+        ) {
+            data.rolesByUsername = {};
+        }
+
+        if (!Array.isArray(data.bannedUsers)) {
+            data.bannedUsers = [];
+        }
+
+        if (!Array.isArray(data.mutedUsers)) {
+            data.mutedUsers = [];
+        }
+
+        if (!Array.isArray(data.ngWords)) {
+            data.ngWords = [];
+        }
+
+        if (!Array.isArray(data.messages)) {
+            data.messages = [];
+        }
+
+        data.messages = data.messages.slice(-200);
+
+        if (!Array.isArray(data.adminLogs)) {
+            data.adminLogs = [];
+        }
+
+        data.adminLogs = data.adminLogs.slice(-500);
+
+        return data;
+    } catch (error) {
+        console.error(
+            'data.jsonの読み込みに失敗しました:',
+            error.message
+        );
+
+        return defaultData();
+    }
+}
+
+let data = loadData();
+
+const users = new Map();
+
+let saveTimer;
+
+function saveData() {
+    clearTimeout(saveTimer);
+
+    saveTimer = setTimeout(() => {
+        const tempFile = DATA_FILE + '.tmp';
+
+        try {
+            fs.writeFileSync(
+                tempFile,
+                JSON.stringify(data, null, 2),
+                { mode: 0o600 }
+            );
+
+            fs.renameSync(tempFile, DATA_FILE);
+        } catch (error) {
+            console.error(
+                'data.jsonの保存に失敗しました:',
+                error.message
+            );
+
+            try {
+                if (fs.existsSync(tempFile)) {
+                    fs.unlinkSync(tempFile);
+                }
+            } catch (_) {}
+        }
+    }, 100);
+}
+
+app.use(express.static(__dirname, {
+    index: false
+}));
+
+app.get('/', (_req, res) => {
+    res.sendFile(
+        path.join(__dirname, 'index.html')
+    );
 });
 
-// Socket.IO接続
-io.on('connection', (socket) => {
-    console.log('接続:', socket.id);
+io.on('connection', socket => {
 
     // 入室
-    socket.on('join', ({ username, adminCode } = {}) => {
-        if (users.has(socket.id)) return;
+    socket.on('join', (payload = {}) => {
+        if (users.has(socket.id)) {
+            return;
+        }
 
-        if (typeof username !== 'string') return;
-
-        username = username.trim().slice(0, 20);
+        let username =
+            typeof payload.username === 'string'
+                ? payload.username.trim().slice(0, 20)
+                : '';
 
         if (!username) {
             socket.emit(
-                'system_message',
+                'login_error',
                 'ユーザー名を入力してください'
             );
             return;
         }
 
-        const normalizedName = username.toLowerCase();
+        const usernameKey = username.toLowerCase();
 
-        // BAN確認
-        if (bannedUsers.has(normalizedName)) {
+        if (data.bannedUsers.includes(usernameKey)) {
             socket.emit(
-                'system_message',
+                'login_error',
                 'あなたはBANされています'
             );
             return;
         }
 
-        // 同名ユーザーの重複を防ぐ
         for (const existingUser of users.values()) {
             if (
-                existingUser.username.toLowerCase() === normalizedName
+                existingUser.username.toLowerCase() ===
+                usernameKey
             ) {
                 socket.emit(
-                    'system_message',
+                    'login_error',
                     'そのユーザー名はすでに使用されています'
                 );
                 return;
             }
         }
 
-        // 管理者パスワード確認
-        const isOwner = safeCompare(adminCode, ADMIN_SECRET);
+        const isOwner = safeCompare(
+            payload.adminCode,
+            ADMIN_SECRET
+        );
 
-        const role = isOwner ? 'Owner' : 'Regular';
+        // 保存されたランクを読み込む
+        let role = isOwner
+            ? 'Owner'
+            : data.rolesByUsername[usernameKey];
+
+        if (
+            !ROLES.includes(role) ||
+            role === 'Owner'
+        ) {
+            role = 'Regular';
+        }
+
+        if (isOwner) {
+            role = 'Owner';
+        }
 
         const user = {
             username,
@@ -109,33 +291,48 @@ io.on('connection', (socket) => {
 
         users.set(socket.id, user);
 
-        // 入室完了
         socket.emit('joined', {
             username,
             role,
-            messages,
-            pinnedMessage
+            messages: data.messages,
+            pinnedMessage: data.pinnedMessage,
+            permissions: data.permissions[role]
         });
 
-        // ユーザー一覧更新
         io.emit('user_list', getUserList());
 
         io.emit(
             'system_message',
             `${username} が入室しました`
         );
+    });
 
-        console.log(`${username} が入室しました (${role})`);
+    // Ownerだけがランク別権限を取得できる
+    socket.on('get_permissions', () => {
+        const user = users.get(socket.id);
+
+        if (!user || user.role !== 'Owner') {
+            return;
+        }
+
+        socket.emit(
+            'permissions_data',
+            data.permissions
+        );
     });
 
     // メッセージ送信
-    socket.on('chat_message', (text) => {
+    socket.on('chat_message', text => {
         const user = users.get(socket.id);
 
-        if (!user) return;
+        if (!user) {
+            return;
+        }
 
-        // チャットロック
-        if (chatLocked && user.role !== 'Owner') {
+        if (
+            data.chatLocked &&
+            user.role !== 'Owner'
+        ) {
             socket.emit(
                 'system_message',
                 '現在チャットはロックされています'
@@ -143,8 +340,11 @@ io.on('connection', (socket) => {
             return;
         }
 
-        // ミュート確認
-        if (mutedUsers.has(user.username.toLowerCase())) {
+        if (
+            data.mutedUsers.includes(
+                user.username.toLowerCase()
+            )
+        ) {
             socket.emit(
                 'system_message',
                 'ミュート中です'
@@ -152,28 +352,34 @@ io.on('connection', (socket) => {
             return;
         }
 
-        if (typeof text !== 'string') return;
+        if (typeof text !== 'string') {
+            return;
+        }
 
         text = text.trim().slice(0, 1000);
 
-        if (!text) return;
+        if (!text) {
+            return;
+        }
 
         const now = Date.now();
 
-        // スローモード
-        if (now - user.lastMessage < slowMode * 1000) {
+        if (
+            now - user.lastMessage <
+            data.slowMode * 1000
+        ) {
             socket.emit(
                 'system_message',
-                `スローモード中です。${slowMode}秒待ってください`
+                `スローモード中です。${data.slowMode}秒待ってください`
             );
             return;
         }
 
-        // NGワード確認
-        for (const word of ngWords) {
+        for (const word of data.ngWords) {
             if (
-                word &&
-                text.toLowerCase().includes(word.toLowerCase())
+                text.toLowerCase().includes(
+                    word.toLowerCase()
+                )
             ) {
                 socket.emit(
                     'system_message',
@@ -186,432 +392,567 @@ io.on('connection', (socket) => {
         user.lastMessage = now;
 
         const message = {
-            id: `${now}-${Math.random().toString(36).slice(2, 9)}`,
+            id:
+                `${now}-` +
+                crypto.randomBytes(4).toString('hex'),
             username: user.username,
             role: user.role,
             text,
             time: new Date().toLocaleTimeString('ja-JP')
         };
 
-        messages.push(message);
+        data.messages.push(message);
 
-        if (messages.length > MAX_MESSAGES) {
-            messages.shift();
+        if (data.messages.length > 200) {
+            data.messages.shift();
         }
+
+        saveData();
 
         io.emit('chat_message', message);
     });
 
-    // 管理者操作
-    socket.on(
-        'admin_action',
-        ({ action, target, value } = {}) => {
-            const user = users.get(socket.id);
+    // 管理操作
+    socket.on('admin_action', (payload = {}) => {
+        const user = users.get(socket.id);
 
-            // 現在はOwnerのみ管理操作可能
-            if (!user || user.role !== 'Owner') {
-                socket.emit(
-                    'system_message',
-                    '管理者権限が必要です'
+        if (!user) {
+            return;
+        }
+
+        const action =
+            typeof payload.action === 'string'
+                ? payload.action
+                : '';
+
+        const target =
+            typeof payload.target === 'string'
+                ? payload.target.trim().slice(0, 20)
+                : '';
+
+        const value = payload.value;
+
+        // ランク変更：Owner専用
+        if (action === 'rank') {
+            if (user.role !== 'Owner') {
+                return notify(
+                    socket,
+                    'ランク変更はOwnerのみ実行できます'
                 );
+            }
+
+            if (!target) {
+                return notify(
+                    socket,
+                    '対象ユーザー名を入力してください'
+                );
+            }
+
+            if (
+                !ROLES.includes(value) ||
+                value === 'Owner'
+            ) {
+                return notify(
+                    socket,
+                    '選択したランクは無効です'
+                );
+            }
+
+            const found = findUser(target);
+
+            if (!found) {
+                return notify(
+                    socket,
+                    '対象ユーザーが見つかりません'
+                );
+            }
+
+            if (found.user.role === 'Owner') {
+                return notify(
+                    socket,
+                    'Ownerのランクは変更できません'
+                );
+            }
+
+            found.user.role = value;
+
+            data.rolesByUsername[
+                found.user.username.toLowerCase()
+            ] = value;
+
+            saveData();
+
+            io.to(found.id).emit('role_updated', {
+                username: found.user.username,
+                role: value,
+                permissions: data.permissions[value]
+            });
+
+            io.emit('user_list', getUserList());
+
+            logAction(
+                user.username,
+                'RANK',
+                `${found.user.username} -> ${value}`
+            );
+
+            return notify(
+                socket,
+                `${found.user.username} のランクを ${value} に変更しました`
+            );
+        }
+
+        // ランク別権限の保存：Owner専用
+        if (action === 'set_permissions') {
+            if (user.role !== 'Owner') {
+                return notify(
+                    socket,
+                    '権限設定はOwnerのみ実行できます'
+                );
+            }
+
+            const role = payload.role;
+            const permissions = payload.permissions;
+
+            if (
+                !['Admin', 'Moderator', 'Member'].includes(role) ||
+                !permissions ||
+                typeof permissions !== 'object'
+            ) {
+                return notify(
+                    socket,
+                    '権限設定が無効です'
+                );
+            }
+
+            for (const key of PERMISSION_KEYS) {
+                data.permissions[role][key] =
+                    permissions[key] === true;
+            }
+
+            // OwnerとRegularの権限は固定
+            data.permissions.Regular = {
+                ...DEFAULT_PERMISSIONS.Regular
+            };
+
+            data.permissions.Owner = {
+                ...DEFAULT_PERMISSIONS.Owner
+            };
+
+            saveData();
+
+            for (const [id, connected] of users.entries()) {
+                io.to(id).emit('permissions_updated', {
+                    role: connected.role,
+                    permissions:
+                        data.permissions[connected.role]
+                });
+            }
+
+            logAction(
+                user.username,
+                'PERMISSIONS',
+                role
+            );
+
+            return notify(
+                socket,
+                `${role} の権限設定を保存しました`
+            );
+        }
+
+        // 登録されている管理操作か確認
+        if (!PERMISSION_KEYS.includes(action)) {
+            return notify(
+                socket,
+                '不明な管理者コマンドです'
+            );
+        }
+
+        // サーバー側で権限を必ず確認
+        if (!hasPermission(user, action)) {
+            return notify(
+                socket,
+                'この操作を実行する権限がありません'
+            );
+        }
+
+        switch (action) {
+
+            case 'kick': {
+                const found = findUser(target);
+
+                if (!found) {
+                    return notify(
+                        socket,
+                        'ユーザーが見つかりません'
+                    );
+                }
+
+                if (
+                    found.user.role === 'Owner' ||
+                    roleLevel(found.user.role) >=
+                    roleLevel(user.role)
+                ) {
+                    return notify(
+                        socket,
+                        '自分と同じか上位のランクはキックできません'
+                    );
+                }
+
+                io.to(found.id).emit(
+                    'system_message',
+                    '管理者にキックされました'
+                );
+
+                users.delete(found.id);
+
+                io.in(found.id).disconnectSockets(true);
+
+                io.emit('user_list', getUserList());
+
+                logAction(user.username, 'KICK', target);
+
                 return;
             }
 
-            target =
-                typeof target === 'string'
-                    ? target.trim().slice(0, 20)
-                    : '';
-
-            switch (action) {
-                // キック
-                case 'kick': {
-                    const targetSocket = findUser(target);
-
-                    if (!targetSocket) {
-                        notify(
-                            socket,
-                            'ユーザーが見つかりません'
-                        );
-                        break;
-                    }
-
-                    if (targetSocket.user.role === 'Owner') {
-                        notify(
-                            socket,
-                            'Ownerはキックできません'
-                        );
-                        break;
-                    }
-
-                    io.to(targetSocket.id).emit(
-                        'system_message',
-                        '管理者にキックされました'
-                    );
-
-                    users.delete(targetSocket.id);
-
-                    io.to(targetSocket.id).disconnectSockets(true);
-
-                    io.emit(
-                        'system_message',
-                        `${targetSocket.user.username} がキックされました`
-                    );
-
-                    io.emit('user_list', getUserList());
-
-                    logAction(
-                        user.username,
-                        'KICK',
-                        targetSocket.user.username
-                    );
-
-                    break;
-                }
-
-                // BAN
-                case 'ban': {
-                    if (!target) {
-                        notify(socket, '対象ユーザーを入力してください');
-                        break;
-                    }
-
-                    const targetSocket = findUser(target);
-
-                    if (targetSocket && targetSocket.user.role === 'Owner') {
-                        notify(socket, 'OwnerはBANできません');
-                        break;
-                    }
-
-                    bannedUsers.add(target.toLowerCase());
-
-                    disconnectTarget(target, 'BANされました');
-
-                    logAction(user.username, 'BAN', target);
-
-                    notify(socket, `${target} をBANしました`);
-
-                    break;
-                }
-
-                // BAN解除
-                case 'unban': {
-                    if (!target) {
-                        notify(socket, '対象ユーザーを入力してください');
-                        break;
-                    }
-
-                    bannedUsers.delete(target.toLowerCase());
-
-                    notify(
+            case 'ban': {
+                if (!target) {
+                    return notify(
                         socket,
-                        `${target} のBANを解除しました`
+                        '対象ユーザー名を入力してください'
                     );
-
-                    logAction(user.username, 'UNBAN', target);
-
-                    break;
                 }
 
-                // ミュート
-                case 'mute': {
-                    if (!target) {
-                        notify(socket, '対象ユーザーを入力してください');
-                        break;
-                    }
+                const found = findUser(target);
 
-                    const targetSocket = findUser(target);
-
-                    if (targetSocket && targetSocket.user.role === 'Owner') {
-                        notify(socket, 'Ownerはミュートできません');
-                        break;
-                    }
-
-                    mutedUsers.add(target.toLowerCase());
-
-                    notify(socket, `${target} をミュートしました`);
-
-                    logAction(user.username, 'MUTE', target);
-
-                    break;
-                }
-
-                // ミュート解除
-                case 'unmute': {
-                    mutedUsers.delete(target.toLowerCase());
-
-                    notify(
+                if (
+                    found &&
+                    (
+                        found.user.role === 'Owner' ||
+                        roleLevel(found.user.role) >=
+                        roleLevel(user.role)
+                    )
+                ) {
+                    return notify(
                         socket,
-                        `${target} のミュートを解除しました`
+                        '自分と同じか上位のランクはBANできません'
                     );
-
-                    logAction(user.username, 'UNMUTE', target);
-
-                    break;
                 }
 
-                // チャットロック
-                case 'lock': {
-                    chatLocked = true;
-
-                    io.emit(
-                        'system_message',
-                        'チャットがロックされました'
+                if (
+                    !data.bannedUsers.includes(
+                        target.toLowerCase()
+                    )
+                ) {
+                    data.bannedUsers.push(
+                        target.toLowerCase()
                     );
-
-                    logAction(user.username, 'LOCK', '');
-
-                    break;
                 }
 
-                // ロック解除
-                case 'unlock': {
-                    chatLocked = false;
-
-                    io.emit(
-                        'system_message',
-                        'チャットのロックが解除されました'
+                if (found) {
+                    disconnectTarget(
+                        target,
+                        'BANされました'
                     );
-
-                    logAction(user.username, 'UNLOCK', '');
-
-                    break;
                 }
 
-                // スローモード
-                case 'slowmode': {
-                    const seconds = Number(value);
+                saveData();
 
-                    slowMode = Number.isFinite(seconds)
-                        ? Math.max(0, Math.min(60, seconds))
-                        : 0;
+                logAction(user.username, 'BAN', target);
 
-                    notify(
-                        socket,
-                        `スローモードを${slowMode}秒に設定しました`
-                    );
-
-                    logAction(
-                        user.username,
-                        'SLOWMODE',
-                        String(slowMode)
-                    );
-
-                    break;
-                }
-
-                // 固定メッセージ
-                case 'pin': {
-                    if (typeof value !== 'string') {
-                        notify(socket, '文章を入力してください');
-                        break;
-                    }
-
-                    pinnedMessage = value.trim().slice(0, 500);
-
-                    if (!pinnedMessage) {
-                        notify(socket, '文章を入力してください');
-                        break;
-                    }
-
-                    io.emit('pinned_message', pinnedMessage);
-
-                    notify(socket, 'メッセージを固定しました');
-
-                    logAction(user.username, 'PIN', pinnedMessage);
-
-                    break;
-                }
-
-                // 固定解除
-                case 'unpin': {
-                    pinnedMessage = null;
-
-                    io.emit('pinned_message', null);
-
-                    notify(socket, '固定メッセージを解除しました');
-
-                    logAction(user.username, 'UNPIN', '');
-
-                    break;
-                }
-
-                // NGワード追加
-                case 'ng_add': {
-                    if (
-                        typeof value !== 'string' ||
-                        !value.trim()
-                    ) {
-                        notify(socket, 'NGワードを入力してください');
-                        break;
-                    }
-
-                    const word = value.trim().slice(0, 50);
-
-                    if (
-                        !ngWords.some(
-                            existing =>
-                                existing.toLowerCase() ===
-                                word.toLowerCase()
-                        )
-                    ) {
-                        ngWords.push(word);
-                    }
-
-                    notify(socket, 'NGワードを追加しました');
-
-                    logAction(user.username, 'NG_ADD', word);
-
-                    break;
-                }
-
-                // NGワード削除
-                case 'ng_remove': {
-                    if (typeof value !== 'string') {
-                        notify(socket, 'NGワードを入力してください');
-                        break;
-                    }
-
-                    const word = value.trim();
-
-                    ngWords = ngWords.filter(
-                        existing =>
-                            existing.toLowerCase() !==
-                            word.toLowerCase()
-                    );
-
-                    notify(socket, 'NGワードを削除しました');
-
-                    logAction(user.username, 'NG_REMOVE', word);
-
-                    break;
-                }
-
-                // 全メッセージ削除
-                case 'clear': {
-                    messages.length = 0;
-
-                    io.emit('clear_messages');
-
-                    notify(socket, 'チャット履歴を削除しました');
-
-                    logAction(user.username, 'CLEAR', '');
-
-                    break;
-                }
-
-                // ★ ランク変更
-                case 'rank': {
-                    if (!target) {
-                        notify(
-                            socket,
-                            '対象ユーザー名を入力してください'
-                        );
-                        break;
-                    }
-
-                    if (
-                        typeof value !== 'string' ||
-                        !ALLOWED_ROLES.has(value)
-                    ) {
-                        notify(
-                            socket,
-                            '選択したランクは無効です'
-                        );
-                        break;
-                    }
-
-                    const targetSocket = findUser(target);
-
-                    if (!targetSocket) {
-                        notify(
-                            socket,
-                            '対象ユーザーが見つかりません。オンラインのユーザーを指定してください'
-                        );
-                        break;
-                    }
-
-                    // Ownerのランクは変更不可
-                    if (targetSocket.user.role === 'Owner') {
-                        notify(
-                            socket,
-                            'Ownerのランクは変更できません'
-                        );
-                        break;
-                    }
-
-                    const oldRole = targetSocket.user.role;
-
-                    // サーバー上のランクを更新
-                    targetSocket.user.role = value;
-
-                    // 本人に新しいランクを通知
-                    io.to(targetSocket.id).emit('role_updated', {
-                        username: targetSocket.user.username,
-                        role: value
-                    });
-
-                    // ユーザー一覧を全員に更新
-                    io.emit('user_list', getUserList());
-
-                    // 管理ログに記録
-                    logAction(
-                        user.username,
-                        'RANK',
-                        `${targetSocket.user.username}: ${oldRole} -> ${value}`
-                    );
-
-                    notify(
-                        socket,
-                        `${targetSocket.user.username} のランクを ${value} に変更しました`
-                    );
-
-                    io.emit(
-                        'system_message',
-                        `${targetSocket.user.username} のランクが ${value} に変更されました`
-                    );
-
-                    break;
-                }
-
-                default: {
-                    notify(socket, '不明な管理者コマンドです');
-                }
+                return notify(
+                    socket,
+                    `${target} をBANしました`
+                );
             }
+
+            case 'unban':
+                data.bannedUsers =
+                    data.bannedUsers.filter(
+                        name => name !== target.toLowerCase()
+                    );
+
+                saveData();
+
+                logAction(user.username, 'UNBAN', target);
+
+                return notify(
+                    socket,
+                    `${target} のBANを解除しました`
+                );
+
+            case 'mute': {
+                const found = findUser(target);
+
+                if (!found) {
+                    return notify(
+                        socket,
+                        'ユーザーが見つかりません'
+                    );
+                }
+
+                if (
+                    found.user.role === 'Owner' ||
+                    roleLevel(found.user.role) >=
+                    roleLevel(user.role)
+                ) {
+                    return notify(
+                        socket,
+                        '自分と同じか上位のランクはミュートできません'
+                    );
+                }
+
+                if (
+                    !data.mutedUsers.includes(
+                        target.toLowerCase()
+                    )
+                ) {
+                    data.mutedUsers.push(
+                        target.toLowerCase()
+                    );
+                }
+
+                saveData();
+
+                logAction(user.username, 'MUTE', target);
+
+                return notify(
+                    socket,
+                    `${target} をミュートしました`
+                );
+            }
+
+            case 'unmute':
+                data.mutedUsers =
+                    data.mutedUsers.filter(
+                        name => name !== target.toLowerCase()
+                    );
+
+                saveData();
+
+                logAction(user.username, 'UNMUTE', target);
+
+                return notify(
+                    socket,
+                    `${target} のミュートを解除しました`
+                );
+
+            case 'lock':
+                data.chatLocked = true;
+                saveData();
+
+                io.emit(
+                    'system_message',
+                    'チャットがロックされました'
+                );
+
+                logAction(user.username, 'LOCK', '');
+
+                return;
+
+            case 'unlock':
+                data.chatLocked = false;
+                saveData();
+
+                io.emit(
+                    'system_message',
+                    'チャットのロックが解除されました'
+                );
+
+                logAction(user.username, 'UNLOCK', '');
+
+                return;
+
+            case 'slowmode': {
+                const seconds = Number(value);
+
+                data.slowMode = Number.isFinite(seconds)
+                    ? Math.max(0, Math.min(60, seconds))
+                    : 0;
+
+                saveData();
+
+                logAction(
+                    user.username,
+                    'SLOWMODE',
+                    String(data.slowMode)
+                );
+
+                return notify(
+                    socket,
+                    `スローモードを${data.slowMode}秒に設定しました`
+                );
+            }
+
+            case 'pin':
+                if (
+                    typeof value !== 'string' ||
+                    !value.trim()
+                ) {
+                    return notify(
+                        socket,
+                        '固定する文章を入力してください'
+                    );
+                }
+
+                data.pinnedMessage =
+                    value.trim().slice(0, 500);
+
+                saveData();
+
+                io.emit(
+                    'pinned_message',
+                    data.pinnedMessage
+                );
+
+                logAction(
+                    user.username,
+                    'PIN',
+                    data.pinnedMessage
+                );
+
+                return notify(
+                    socket,
+                    'メッセージを固定しました'
+                );
+
+            case 'unpin':
+                data.pinnedMessage = null;
+                saveData();
+
+                io.emit('pinned_message', null);
+
+                logAction(user.username, 'UNPIN', '');
+
+                return notify(
+                    socket,
+                    '固定を解除しました'
+                );
+
+            case 'ng_add':
+                if (
+                    typeof value !== 'string' ||
+                    !value.trim()
+                ) {
+                    return notify(
+                        socket,
+                        'NGワードを入力してください'
+                    );
+                }
+
+                if (
+                    !data.ngWords.includes(
+                        value.trim().slice(0, 50)
+                    )
+                ) {
+                    data.ngWords.push(
+                        value.trim().slice(0, 50)
+                    );
+                }
+
+                saveData();
+
+                logAction(
+                    user.username,
+                    'NG_ADD',
+                    String(value)
+                );
+
+                return notify(
+                    socket,
+                    'NGワードを追加しました'
+                );
+
+            case 'ng_remove':
+                data.ngWords = data.ngWords.filter(
+                    word =>
+                        word.toLowerCase() !==
+                        String(value || '').toLowerCase()
+                );
+
+                saveData();
+
+                logAction(
+                    user.username,
+                    'NG_REMOVE',
+                    String(value || '')
+                );
+
+                return notify(
+                    socket,
+                    'NGワードを削除しました'
+                );
+
+            case 'clear':
+                data.messages = [];
+                saveData();
+
+                io.emit('clear_messages');
+
+                logAction(user.username, 'CLEAR', '');
+
+                return notify(
+                    socket,
+                    'チャット履歴を削除しました'
+                );
         }
-    );
+    });
 
     // 切断
     socket.on('disconnect', () => {
         const user = users.get(socket.id);
 
-        if (user) {
-            users.delete(socket.id);
-
-            io.emit(
-                'system_message',
-                `${user.username} が退室しました`
-            );
-
-            io.emit('user_list', getUserList());
-
-            console.log(`${user.username} が退室しました`);
+        if (!user) {
+            return;
         }
+
+        users.delete(socket.id);
+
+        io.emit(
+            'system_message',
+            `${user.username} が退室しました`
+        );
+
+        io.emit('user_list', getUserList());
     });
 });
 
 // パスワード比較
 function safeCompare(input, secret) {
-    if (typeof input !== 'string') return false;
+    if (typeof input !== 'string') {
+        return false;
+    }
 
     const a = Buffer.from(input);
     const b = Buffer.from(secret);
 
-    if (a.length !== b.length) return false;
-
-    return crypto.timingSafeEqual(a, b);
+    return (
+        a.length === b.length &&
+        crypto.timingSafeEqual(a, b)
+    );
 }
 
-// ユーザー一覧
+// 権限確認
+function hasPermission(user, permission) {
+    return (
+        user.role === 'Owner' ||
+        data.permissions[user.role]?.[permission] === true
+    );
+}
+
+// ランクの強さ
+function roleLevel(role) {
+    return {
+        Owner: 5,
+        Admin: 4,
+        Moderator: 3,
+        Member: 2,
+        Regular: 1
+    }[role] || 0;
+}
+
+// オンライン一覧
 function getUserList() {
     return [...users.values()].map(user => ({
         username: user.username,
@@ -621,33 +962,38 @@ function getUserList() {
 
 // ユーザー検索
 function findUser(username) {
-    if (!username) return null;
-
-    const normalized = username.toLowerCase();
+    if (!username) {
+        return null;
+    }
 
     for (const [id, user] of users.entries()) {
-        if (user.username.toLowerCase() === normalized) {
-            return {
-                id,
-                user
-            };
+        if (
+            user.username.toLowerCase() ===
+            username.toLowerCase()
+        ) {
+            return { id, user };
         }
     }
 
     return null;
 }
 
-// 対象ユーザーを切断
+// 対象ユーザー切断
 function disconnectTarget(username, reason) {
-    const targetSocket = findUser(username);
+    const found = findUser(username);
 
-    if (!targetSocket) return;
+    if (!found) {
+        return;
+    }
 
-    io.to(targetSocket.id).emit('system_message', reason);
+    io.to(found.id).emit(
+        'system_message',
+        reason
+    );
 
-    users.delete(targetSocket.id);
+    users.delete(found.id);
 
-    io.to(targetSocket.id).disconnectSockets(true);
+    io.in(found.id).disconnectSockets(true);
 
     io.emit('user_list', getUserList());
 }
@@ -659,16 +1005,18 @@ function notify(socket, message) {
 
 // 管理ログ
 function logAction(admin, action, target) {
-    adminLogs.push({
+    data.adminLogs.push({
         admin,
         action,
         target,
         time: new Date().toISOString()
     });
 
-    if (adminLogs.length > 500) {
-        adminLogs.shift();
+    if (data.adminLogs.length > 500) {
+        data.adminLogs.shift();
     }
+
+    saveData();
 }
 
 // サーバー起動
