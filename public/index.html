@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>チャット</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #17191f;
+      color: white;
+    }
+    header {
+      padding: 16px;
+      background: #252833;
+      font-size: 22px;
+      font-weight: bold;
+    }
+    main {
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    #messages {
+      height: 300px;
+      overflow-y: auto;
+      padding: 12px;
+      background: #252833;
+      border-radius: 8px;
+      margin-bottom: 12px;
+    }
+    form {
+      display: flex;
+      gap: 8px;
+    }
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 12px;
+      border-radius: 6px;
+      border: 0;
+    }
+    button {
+      padding: 12px 18px;
+      border: 0;
+      border-radius: 6px;
+      background: #5865f2;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <header>チャットルーム</header>
+  <main>
+    <h2>みんなのチャット</h2>
+    <div id="messages"></div>
+    <form id="form">
+      <input id="message" placeholder="メッセージを入力..." autocomplete="off">
+      <button type="submit">送信</button>
+    </form>
+  </main>
+
+  <main>
+    <h2>チャット</h2>
+    <div id="messages"></div>
+    <form id="form">
+      <input id="message" placeholder="メッセージを入力..." autocomplete="off">
+      <button type="submit">送信</button>
+    </form>
+  </main>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const form = document.getElementById('form');
+    const input = document.getElementById('message');
+    const messages = document.getElementById('messages');
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const message = input.value.trim();
+      if (!message) return;
+      socket.emit('chat message', message);
+      input.value = '';
+    });
+
+    socket.on('chat message', (message) => {
+      const item = document.createElement('div');
+      item.textContent = typeof message === 'string'
+        ? message
+        : JSON.stringify(message);
+      messages.appendChild(item);
+      messages.scrollTop = messages.scrollHeight;
+    });
+  </script>
+</body>
+</html>
