@@ -10,9 +10,9 @@ const io = new Server(server);
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
-if (!ADMIN_SECRET || ADMIN_SECRET.length < 16) {
+if (!ADMIN_SECRET || ADMIN_SECRET.length < 8) {
     console.error(
-        'ADMIN_SECRETに16文字以上の秘密の文字列を設定してください'
+        'ADMIN_SECRETに8文字以上の秘密の文字列を設定してください'
     );
     process.exit(1);
 }
