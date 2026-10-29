@@ -14,7 +14,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
 if (!ADMIN_SECRET || ADMIN_SECRET.length < 16) {
-    console.error('ADMIN_SECRETに16文字以上の秘密の文字列を設定してください');
+    console.error('ADMIN_SECRETに8文字以上の秘密の文字列を設定してください');
     process.exit(1);
 }
 
