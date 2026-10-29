@@ -1,889 +1,1010 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const fs = require('fs');
-const path = require('path');
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>暇潰しチャット</title>
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
-
-const PORT = process.env.PORT || 3000;
-const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
-const DATA_FILE = path.join(__dirname, 'data.json');
-
-const RANKS = [
-    'Owner',
-    'Admin',
-    'Moderator',
-    'Member',
-    'Regular'
-];
-
-const PERMISSION_KEYS = [
-    'kick',
-    'ban',
-    'unban',
-    'mute',
-    'unmute',
-    'lock',
-    'unlock',
-    'slowmode',
-    'pin',
-    'unpin',
-    'ng_add',
-    'ng_remove',
-    'clear'
-];
-
-const DEFAULT_PERMISSIONS = {
-    Owner: Object.fromEntries(
-        PERMISSION_KEYS.map(key => [key, true])
-    ),
-
-    Admin: Object.fromEntries(
-        PERMISSION_KEYS.map(key => [key, true])
-    ),
-
-    Moderator: {
-        kick: true,
-        ban: false,
-        unban: false,
-        mute: true,
-        unmute: true,
-        lock: false,
-        unlock: false,
-        slowmode: true,
-        pin: true,
-        unpin: true,
-        ng_add: false,
-        ng_remove: false,
-        clear: false
-    },
-
-    Member: Object.fromEntries(
-        PERMISSION_KEYS.map(key => [key, false])
-    ),
-
-    Regular: Object.fromEntries(
-        PERMISSION_KEYS.map(key => [key, false])
-    )
-};
-
-function createDefaultData() {
-    return {
-        roles: {},
-        permissions: JSON.parse(
-            JSON.stringify(DEFAULT_PERMISSIONS)
-        ),
-        bans: [],
-        mutes: [],
-        ng: [],
-        messages: [],
-        locked: false,
-        slow: 0,
-        pin: null,
-        logs: []
-    };
+<style>
+* {
+    box-sizing: border-box;
 }
 
-function loadData() {
-    const defaults = createDefaultData();
-
-    try {
-        if (!fs.existsSync(DATA_FILE)) {
-            fs.writeFileSync(
-                DATA_FILE,
-                JSON.stringify(defaults, null, 2)
-            );
-
-            return defaults;
-        }
-
-        const saved = JSON.parse(
-            fs.readFileSync(DATA_FILE, 'utf8')
-        );
-
-        const data = {
-            ...defaults,
-            ...saved
-        };
-
-        data.roles = saved.roles || {};
-
-        data.permissions = {
-            ...defaults.permissions,
-            ...(saved.permissions || {})
-        };
-
-        for (const rank of RANKS) {
-            data.permissions[rank] = {
-                ...DEFAULT_PERMISSIONS[rank],
-                ...(data.permissions[rank] || {})
-            };
-        }
-
-        return data;
-    } catch (error) {
-        console.error('データ読み込みエラー:', error);
-        return defaults;
-    }
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111827;
+    color: #f9fafb;
 }
 
-let data = loadData();
-
-const connectedUsers = new Map();
-
-function saveData() {
-    try {
-        fs.writeFileSync(
-            DATA_FILE,
-            JSON.stringify(data, null, 2)
-        );
-    } catch (error) {
-        console.error('データ保存エラー:', error);
-    }
+.container {
+    max-width: 1100px;
+    margin: auto;
+    padding: 16px;
 }
 
-function cleanText(value, maxLength = 500) {
-    return String(value ?? '')
-        .trim()
-        .slice(0, maxLength);
+.card {
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
 }
 
-function findUser(username) {
-    for (const [id, user] of connectedUsers.entries()) {
-        if (
-            user.username.toLowerCase() ===
-            username.toLowerCase()
-        ) {
-            return {
-                id,
-                ...user
-            };
-        }
-    }
-
-    return null;
+input,
+select,
+button {
+    font: inherit;
+    padding: 10px;
+    border: 1px solid #4b5563;
+    border-radius: 7px;
+    background: #111827;
+    color: white;
 }
 
-function getUserList() {
-    return [...connectedUsers.values()].map(user => ({
-        username: user.username,
-        role: user.role,
-        muted: data.mutes.includes(
-            user.username.toLowerCase()
-        )
-    }));
+button {
+    background: #2563eb;
+    cursor: pointer;
+    margin: 3px;
 }
 
-function broadcastUserList() {
-    io.emit('user_list', getUserList());
+button:hover {
+    filter: brightness(1.15);
 }
 
-function systemMessage(text) {
-    io.emit('system_message', {
-        text,
-        at: new Date().toISOString()
-    });
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
-function logAction(actor, action, target = '') {
-    data.logs.unshift({
-        actor,
-        action,
-        target,
-        at: new Date().toISOString()
-    });
-
-    data.logs = data.logs.slice(0, 100);
-
-    saveData();
+.danger {
+    background: #b91c1c;
 }
 
-function hasPermission(user, permission) {
-    return Boolean(
-        user &&
-        data.permissions[user.role] &&
-        data.permissions[user.role][permission]
+.secondary {
+    background: #374151;
+}
+
+.hidden {
+    display: none !important;
+}
+
+#login {
+    max-width: 420px;
+    margin: 12vh auto;
+}
+
+#layout {
+    display: none;
+    grid-template-columns: minmax(0, 1fr) 240px;
+    gap: 14px;
+}
+
+#messages {
+    height: 45vh;
+    min-height: 260px;
+    overflow-y: auto;
+    background: #111827;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.message {
+    padding: 9px 0;
+    border-bottom: 1px solid #374151;
+    overflow-wrap: anywhere;
+}
+
+.role {
+    color: #93c5fd;
+    font-size: 12px;
+    margin-left: 6px;
+}
+
+.time {
+    color: #9ca3af;
+    font-size: 11px;
+    margin-left: 8px;
+}
+
+.row {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    margin: 8px 0;
+}
+
+.row input {
+    flex: 1;
+    min-width: 100px;
+}
+
+#notice {
+    color: #fbbf24;
+    min-height: 24px;
+}
+
+#admin {
+    display: none;
+}
+
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(220px, 1fr)
     );
+    gap: 10px;
 }
 
-function rankLevel(rank) {
-    return RANKS.indexOf(rank);
+.admin-box {
+    border: 1px solid #4b5563;
+    border-radius: 9px;
+    padding: 12px;
 }
 
-function canModerateTarget(actor, target) {
-    if (!target) {
-        return true;
+.admin-box h3 {
+    margin-top: 0;
+}
+
+.admin-box input,
+.admin-box select {
+    width: 100%;
+    min-width: 0;
+}
+
+.check {
+    display: block;
+    margin: 7px 0;
+}
+
+.check input {
+    width: auto;
+}
+
+#pinned {
+    padding: 10px;
+    background: #374151;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.user-item {
+    padding: 8px 0;
+    border-bottom: 1px solid #374151;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 700px) {
+    #layout {
+        grid-template-columns: 1fr;
     }
 
-    return rankLevel(target.role) > rankLevel(actor.role);
-}
-
-function sendPermissionData(socket, user) {
-    if (!socket || !user) {
-        return;
+    .container {
+        padding: 8px;
     }
-
-    socket.emit('permissions_data', {
-        role: user.role,
-        permissions: data.permissions,
-        chatLocked: data.locked,
-        slowMode: data.slow,
-        pinnedMessage: data.pin,
-        ngWords: data.ng
-    });
 }
+</style>
+</head>
 
-app.use(express.static(
-    path.join(__dirname, 'public')
-));
+<body>
+<div class="container">
 
-app.get('/health', (req, res) => {
-    res.json({
-        ok: true
-    });
-});
+<!-- ログイン画面 -->
+<section id="login" class="card">
+    <h1>💬 チャットルーム</h1>
 
-io.on('connection', socket => {
+    <form id="joinForm">
+        <input
+            id="username"
+            maxlength="24"
+            placeholder="ユーザー名"
+            required
+            style="width:100%"
+        >
+
+        <p>
+            <input
+                id="ownerSecret"
+                type="password"
+                placeholder="Owner秘密鍵（Ownerのみ）"
+                style="width:100%"
+            >
+        </p>
+
+        <button type="submit" style="width:100%">
+            参加する
+        </button>
+
+        <p id="loginError"></p>
+    </form>
+</section>
+
+<!-- チャット画面 -->
+<section id="layout">
+
+<div>
+
+    <section class="card">
+        <h2>暇潰しチャット</h2>
+
+        <div id="pinned" class="hidden"></div>
+
+        <div id="messages"></div>
+
+        <p id="notice"></p>
+
+        <form id="messageForm" class="row">
+            <input
+                id="messageInput"
+                maxlength="500"
+                placeholder="メッセージを入力..."
+                autocomplete="off"
+                required
+            >
+
+            <button type="submit">
+                送信
+            </button>
+        </form>
+
+        <small id="slowStatus"></small>
+    </section>
+
+    <!-- 管理者パネル -->
+    <section id="admin" class="card">
+
+        <h2>🛠 管理者パネル</h2>
+
+        <div class="admin-grid">
+
+            <!-- ランク変更 -->
+            <div class="admin-box">
+                <h3>👑 ランク変更</h3>
+
+                <input
+                    id="targetUser"
+                    placeholder="対象ユーザー名"
+                >
+
+                <p>
+                    <select id="rankValue">
+                        <option value="Regular">Regular</option>
+                        <option value="Member">Member</option>
+                        <option value="Moderator">Moderator</option>
+                        <option value="Admin">Admin</option>
+                        <option value="Owner">Owner</option>
+                    </select>
+                </p>
+
+                <button
+                    id="changeRankButton"
+                    type="button"
+                >
+                    ランクを変更
+                </button>
+            </div>
+
+            <!-- ユーザー管理 -->
+            <div class="admin-box">
+                <h3>👤 ユーザー管理</h3>
+
+                <input
+                    id="moderationTarget"
+                    placeholder="対象ユーザー名"
+                >
+
+                <div class="row">
+                    <button type="button" data-action="kick">
+                        Kick
+                    </button>
+
+                    <button type="button" data-action="ban" class="danger">
+                        BAN
+                    </button>
+
+                    <button type="button" data-action="unban" class="secondary">
+                        BAN解除
+                    </button>
+
+                    <button type="button" data-action="mute" class="secondary">
+                        Mute
+                    </button>
+
+                    <button type="button" data-action="unmute" class="secondary">
+                        Mute解除
+                    </button>
+                </div>
+            </div>
+
+            <!-- チャット設定 -->
+            <div class="admin-box">
+                <h3>⚙️ チャット設定</h3>
+
+                <button type="button" data-action="lock" class="danger">
+                    チャットロック
+                </button>
+
+                <button type="button" data-action="unlock" class="secondary">
+                    ロック解除
+                </button>
+
+                <hr>
+
+                <label for="slowSeconds">
+                    スローモード（秒・0でOFF）
+                </label>
+
+                <div class="row">
+                    <input
+                        id="slowSeconds"
+                        type="number"
+                        min="0"
+                        max="3600"
+                        value="0"
+                    >
+
+                    <button id="setSlow" type="button">
+                        設定
+                    </button>
+                </div>
+
+                <hr>
+
+                <input
+                    id="pinText"
+                    maxlength="500"
+                    placeholder="固定メッセージ"
+                >
+
+                <button id="pinButton" type="button">
+                    メッセージ固定
+                </button>
+
+                <button type="button" data-action="unpin" class="secondary">
+                    固定解除
+                </button>
+
+                <hr>
+
+                <button type="button" data-action="clear" class="danger">
+                    チャット履歴消去
+                </button>
+            </div>
+
+            <!-- NGワード -->
+            <div class="admin-box">
+                <h3>🚫 NGワード</h3>
+
+                <input
+                    id="ngWord"
+                    maxlength="80"
+                    placeholder="NGワード"
+                >
+
+                <button id="addNg" type="button">
+                    追加
+                </button>
+
+                <button id="removeNg" type="button" class="secondary">
+                    削除
+                </button>
+
+                <p id="ngList"></p>
+            </div>
+
+            <!-- ランク別権限 -->
+            <div id="permissionBox" class="admin-box">
+                <h3>🔐 ランク別権限</h3>
+
+                <select id="permissionRank">
+                    <option value="Admin">Admin</option>
+                    <option value="Moderator">Moderator</option>
+                    <option value="Member">Member</option>
+                </select>
+
+                <div id="permissionChecks"></div>
+
+                <button id="savePermissions" type="button">
+                    権限を保存
+                </button>
+            </div>
+
+        </div>
+    </section>
+
+</div>
+
+<!-- 参加者一覧 -->
+<aside class="card">
+    <h2>
+        参加者
+        <span id="userCount">0</span>
+    </h2>
+
+    <p id="myInfo"></p>
+
+    <hr>
+
+    <div id="users"></div>
+</aside>
+
+</section>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+
+<script>
+(() => {
+
+    const socket = io();
+
+    const $ = id => document.getElementById(id);
+
+    let myUsername = '';
+    let myRole = 'Regular';
+
+    let permissions = {};
+    let chatLocked = false;
+    let slowMode = 0;
+
+    const permissionNames = {
+        kick: 'Kick',
+        ban: 'BAN',
+        unban: 'BAN解除',
+        mute: 'Mute',
+        unmute: 'Mute解除',
+        lock: 'チャットロック',
+        unlock: 'ロック解除',
+        slowmode: 'スローモード',
+        pin: 'メッセージ固定',
+        unpin: '固定解除',
+        ng_add: 'NGワード追加',
+        ng_remove: 'NGワード削除',
+        clear: '履歴消去'
+    };
 
     // =========================
     // ログイン
     // =========================
 
-    socket.on('join', (input, callback) => {
-        const username = cleanText(
-            typeof input === 'object'
-                ? input.username
-                : input,
-            24
-        );
+    $('joinForm').addEventListener('submit', event => {
+        event.preventDefault();
 
-        const secret = typeof input === 'object'
-            ? String(input.secret || '')
-            : '';
+        const username = $('username').value.trim();
+        const secret = $('ownerSecret').value;
 
-        const reply = typeof callback === 'function'
-            ? callback
-            : () => {};
+        socket.emit(
+            'join',
+            {
+                username,
+                secret
+            },
+            result => {
 
-        if (
-            !username ||
-            !/^[\p{L}\p{N}_ -]+$/u.test(username)
-        ) {
-            return reply({
-                ok: false,
-                error: 'ユーザー名を正しく入力してください。'
-            });
-        }
+                if (!result || !result.ok) {
+                    $('loginError').textContent =
+                        result?.error || '参加できませんでした。';
 
-        if (
-            data.bans.includes(username.toLowerCase())
-        ) {
-            return reply({
-                ok: false,
-                error: 'このユーザー名はBANされています。'
-            });
-        }
+                    return;
+                }
 
-        if (findUser(username)) {
-            return reply({
-                ok: false,
-                error: 'そのユーザー名は使用中です。'
-            });
-        }
+                myUsername = result.username;
+                myRole = result.role;
 
-        let role =
-            data.roles[username.toLowerCase()] ||
-            'Regular';
+                $('login').style.display = 'none';
+                $('layout').style.display = 'grid';
 
-        // Ownerはサーバー側の秘密鍵で認証
-        if (
-            ADMIN_SECRET &&
-            secret &&
-            secret === ADMIN_SECRET
-        ) {
-            role = 'Owner';
+                $('myInfo').textContent =
+                    `${myUsername} / ${myRole}`;
 
-            data.roles[username.toLowerCase()] =
-                'Owner';
-
-            saveData();
-        }
-
-        if (!RANKS.includes(role)) {
-            role = 'Regular';
-        }
-
-        const user = {
-            username,
-            role,
-            lastMessageAt: 0
-        };
-
-        connectedUsers.set(socket.id, user);
-
-        socket.emit('joined', {
-            username,
-            role,
-            messages: data.messages,
-            chatLocked: data.locked,
-            slowMode: data.slow,
-            pinnedMessage: data.pin
-        });
-
-        sendPermissionData(socket, user);
-
-        broadcastUserList();
-
-        reply({
-            ok: true,
-            username,
-            role
-        });
-
-        systemMessage(
-            `${username} が参加しました。`
+                updateAdminVisibility();
+            }
         );
     });
 
+    function updateAdminVisibility() {
+
+        $('admin').style.display =
+            ['Owner', 'Admin', 'Moderator'].includes(myRole)
+                ? 'block'
+                : 'none';
+
+        $('permissionBox').classList.toggle(
+            'hidden',
+            myRole !== 'Owner'
+        );
+
+        $('changeRankButton').disabled =
+            myRole !== 'Owner';
+    }
+
     // =========================
-    // メッセージ送信
+    // メッセージ表示
     // =========================
 
-    socket.on('chat_message', rawText => {
-        const user = connectedUsers.get(socket.id);
+    function addMessage(message) {
 
-        if (!user) {
-            return;
+        const div = document.createElement('div');
+        div.className = 'message';
+
+        const name = document.createElement('strong');
+
+        name.textContent =
+            message.username || 'システム';
+
+        div.appendChild(name);
+
+        if (message.role) {
+            const role = document.createElement('span');
+
+            role.className = 'role';
+            role.textContent = `[${message.role}]`;
+
+            div.appendChild(role);
         }
 
-        const text = cleanText(rawText, 500);
+        const body = document.createElement('div');
+
+        body.textContent = message.text || '';
+
+        div.appendChild(body);
+
+        if (message.at) {
+            const time = document.createElement('span');
+
+            time.className = 'time';
+
+            time.textContent =
+                new Date(message.at).toLocaleTimeString('ja-JP');
+
+            div.appendChild(time);
+        }
+
+        $('messages').appendChild(div);
+
+        $('messages').scrollTop =
+            $('messages').scrollHeight;
+    }
+
+    $('messageForm').addEventListener('submit', event => {
+        event.preventDefault();
+
+        const text = $('messageInput').value.trim();
 
         if (!text) {
             return;
         }
 
-        if (
-            data.mutes.includes(
-                user.username.toLowerCase()
-            )
-        ) {
-            return socket.emit('system_message', {
-                text: 'ミュート中のため送信できません。'
+        socket.emit('chat_message', text);
+
+        $('messageInput').value = '';
+    });
+
+    // =========================
+    // サーバーからのイベント
+    // =========================
+
+    socket.on('joined', data => {
+
+        $('messages').replaceChildren();
+
+        (data.messages || []).forEach(addMessage);
+
+        chatLocked = !!data.chatLocked;
+        slowMode = Number(data.slowMode || 0);
+
+        setPinnedMessage(data.pinnedMessage);
+
+        updateChatStatus();
+    });
+
+    socket.on('chat_message', addMessage);
+
+    socket.on('system_message', data => {
+
+        $('notice').textContent =
+            typeof data === 'string'
+                ? data
+                : data?.text || '';
+    });
+
+    socket.on('user_list', users => {
+
+        $('users').replaceChildren();
+
+        $('userCount').textContent = users.length;
+
+        users.forEach(user => {
+
+            const div = document.createElement('div');
+
+            div.className = 'user-item';
+
+            div.textContent =
+                `${user.username} [${user.role}]` +
+                (user.muted ? ' (Mute)' : '');
+
+            div.addEventListener('click', () => {
+
+                $('targetUser').value = user.username;
+
+                $('moderationTarget').value =
+                    user.username;
             });
+
+            $('users').appendChild(div);
+        });
+    });
+
+    socket.on('role_updated', data => {
+
+        myRole = data.role;
+
+        $('myInfo').textContent =
+            `${myUsername} / ${myRole}`;
+
+        updateAdminVisibility();
+
+        $('notice').textContent =
+            `あなたのランクが ${myRole} に変更されました。`;
+    });
+
+    socket.on('permissions_data', data => {
+
+        permissions = data.permissions || {};
+
+        if (typeof data.chatLocked === 'boolean') {
+            chatLocked = data.chatLocked;
         }
 
-        if (
-            data.locked &&
-            !['Owner', 'Admin'].includes(user.role)
-        ) {
-            return socket.emit('system_message', {
-                text: 'チャットはロックされています。'
-            });
+        slowMode = Number(data.slowMode || 0);
+
+        renderPermissionChecks();
+
+        renderNGWords(data.ngWords || []);
+
+        setPinnedMessage(data.pinnedMessage);
+
+        updateChatStatus();
+    });
+
+    socket.on('permissions_updated', data => {
+
+        permissions = data.permissions || permissions;
+
+        renderPermissionChecks();
+    });
+
+    socket.on('chat_settings', data => {
+
+        chatLocked = !!data.chatLocked;
+        slowMode = Number(data.slowMode || 0);
+
+        updateChatStatus();
+    });
+
+    socket.on('pinned_message', data => {
+        setPinnedMessage(data?.text);
+    });
+
+    socket.on('clear_messages', () => {
+        $('messages').replaceChildren();
+    });
+
+    socket.on('kicked', data => {
+
+        alert(data?.text || '退出させられました。');
+
+        location.reload();
+    });
+
+    socket.on('connect_error', () => {
+
+        $('loginError').textContent =
+            'サーバーに接続できません。';
+    });
+
+    // =========================
+    // 固定メッセージ
+    // =========================
+
+    function setPinnedMessage(text) {
+
+        const box = $('pinned');
+
+        if (text) {
+            box.textContent = `📌 ${text}`;
+            box.classList.remove('hidden');
+        } else {
+            box.textContent = '';
+            box.classList.add('hidden');
         }
+    }
 
-        const remaining =
-            data.slow * 1000 -
-            (Date.now() - user.lastMessageAt);
+    // =========================
+    // チャット設定表示
+    // =========================
 
-        if (data.slow > 0 && remaining > 0) {
-            return socket.emit('system_message', {
-                text: `スローモード中です。あと${Math.ceil(
-                    remaining / 1000
-                )}秒待ってください。`
-            });
-        }
+    function updateChatStatus() {
 
-        const lowerText = text.toLowerCase();
+        $('slowStatus').textContent =
+            (chatLocked ? '🔒 チャットロック中 ' : '') +
+            (slowMode > 0
+                ? `⏱️ スローモード：${slowMode}秒`
+                : 'スローモードOFF');
+    }
 
-        if (
-            data.ng.some(word =>
-                lowerText.includes(word.toLowerCase())
-            )
-        ) {
-            return socket.emit('system_message', {
-                text: 'NGワードが含まれています。'
-            });
-        }
+    // =========================
+    // 管理者操作送信
+    // =========================
 
-        user.lastMessageAt = Date.now();
+    function adminAction(action, target = '', value) {
 
-        const message = {
-            id: `${Date.now()}-${Math.random()
-                .toString(36)
-                .slice(2, 8)}`,
-            username: user.username,
-            role: user.role,
-            text,
-            at: new Date().toISOString()
+        const payload = {
+            action,
+            target
         };
 
-        data.messages.push(message);
-
-        data.messages = data.messages.slice(-300);
-
-        saveData();
-
-        io.emit('chat_message', message);
-    });
-
-    // =========================
-    // 管理者操作
-    // =========================
-
-    socket.on('admin_action', payload => {
-        const actor = connectedUsers.get(socket.id);
-
-        if (!actor || !payload) {
-            return;
+        if (value !== undefined) {
+            payload.value = value;
         }
 
-        const action = cleanText(payload.action, 30);
-        const targetName = cleanText(payload.target, 24);
-        const value = payload.value;
+        socket.emit('admin_action', payload);
+    }
 
-        // -------------------------
-        // ランク変更
-        // -------------------------
+    // =========================
+    // ★ ランク変更ボタン
+    // =========================
 
-        if (action === 'rank') {
-            if (actor.role !== 'Owner') {
-                return socket.emit('system_message', {
-                    text: 'ランク変更はOwnerのみ実行できます。'
-                });
-            }
+    $('changeRankButton').addEventListener(
+        'click',
+        () => {
 
-            const newRank = cleanText(value, 20);
-
-            if (!RANKS.includes(newRank)) {
-                return socket.emit('system_message', {
-                    text: '指定されたランクが無効です。'
-                });
-            }
-
-            if (!targetName) {
-                return socket.emit('system_message', {
-                    text: '対象ユーザー名を入力してください。'
-                });
-            }
-
-            // オンライン・オフライン両方のランクを保存
-            data.roles[targetName.toLowerCase()] =
-                newRank;
-
-            const target = findUser(targetName);
-
-            if (target) {
-                const liveUser =
-                    connectedUsers.get(target.id);
-
-                liveUser.role = newRank;
-
-                const targetSocket =
-                    io.sockets.sockets.get(target.id);
-
-                if (targetSocket) {
-                    targetSocket.data.role = newRank;
-
-                    targetSocket.emit('role_updated', {
-                        role: newRank
-                    });
-
-                    sendPermissionData(
-                        targetSocket,
-                        liveUser
-                    );
-                }
-            }
-
-            saveData();
-
-            logAction(
-                actor.username,
-                `rank:${newRank}`,
-                targetName
-            );
-
-            broadcastUserList();
-
-            socket.emit('system_message', {
-                text: `${targetName} のランクを ${newRank} に変更しました。`
-            });
-
-            return;
-        }
-
-        // -------------------------
-        // ランクごとの権限変更
-        // -------------------------
-
-        if (action === 'set_permissions') {
-            if (actor.role !== 'Owner') {
-                return socket.emit('system_message', {
-                    text: '権限変更はOwnerのみ実行できます。'
-                });
-            }
-
-            const rank = cleanText(payload.rank, 20);
-
-            if (
-                !['Admin', 'Moderator', 'Member']
-                    .includes(rank)
-            ) {
-                return socket.emit('system_message', {
-                    text: 'このランクの権限は変更できません。'
-                });
-            }
-
-            if (!value || typeof value !== 'object') {
+            if (myRole !== 'Owner') {
+                alert('ランク変更はOwnerのみ実行できます。');
                 return;
             }
 
-            data.permissions[rank] = {
-                ...DEFAULT_PERMISSIONS[rank]
-            };
-
-            for (const key of PERMISSION_KEYS) {
-                if (typeof value[key] === 'boolean') {
-                    data.permissions[rank][key] =
-                        value[key];
-                }
+            if (!socket.connected) {
+                alert('サーバーに接続されていません。');
+                return;
             }
 
-            saveData();
+            const target =
+                $('targetUser').value.trim();
 
-            logAction(
-                actor.username,
-                `permissions:${rank}`
-            );
+            const rank =
+                $('rankValue').value;
 
-            for (const [id, user] of connectedUsers) {
-                const userSocket =
-                    io.sockets.sockets.get(id);
-
-                sendPermissionData(userSocket, user);
+            if (!target) {
+                alert('対象ユーザー名を入力してください。');
+                return;
             }
 
-            io.emit('permissions_updated', {
-                permissions: data.permissions
-            });
+            const validRanks = [
+                'Owner',
+                'Admin',
+                'Moderator',
+                'Member',
+                'Regular'
+            ];
 
-            socket.emit('system_message', {
-                text: `${rank} の権限を更新しました。`
-            });
-
-            return;
-        }
-
-        // -------------------------
-        // その他の操作の権限確認
-        // -------------------------
-
-        if (
-            !PERMISSION_KEYS.includes(action) ||
-            !hasPermission(actor, action)
-        ) {
-            return socket.emit('system_message', {
-                text: 'この操作を行う権限がありません。'
-            });
-        }
-
-        // Kick / BAN / Mute / Unmute
-        if (
-            ['kick', 'ban', 'mute', 'unmute']
-                .includes(action)
-        ) {
-            if (!targetName) {
-                return socket.emit('system_message', {
-                    text: '対象ユーザー名を入力してください。'
-                });
-            }
-
-            const target = findUser(targetName);
-
-            if (!canModerateTarget(actor, target)) {
-                return socket.emit('system_message', {
-                    text: '自分と同じか上位ランクには実行できません。'
-                });
-            }
-
-            if (action === 'kick' || action === 'ban') {
-                if (
-                    action === 'ban' &&
-                    !data.bans.includes(
-                        targetName.toLowerCase()
-                    )
-                ) {
-                    data.bans.push(
-                        targetName.toLowerCase()
-                    );
-                }
-
-                if (target) {
-                    const targetSocket =
-                        io.sockets.sockets.get(target.id);
-
-                    targetSocket?.emit('kicked', {
-                        text: action === 'ban'
-                            ? 'BANされました。'
-                            : '退出させられました。'
-                    });
-
-                    targetSocket?.disconnect(true);
-                }
-
-                saveData();
-
-                logAction(
-                    actor.username,
-                    action,
-                    targetName
-                );
-
-                broadcastUserList();
-
+            if (!validRanks.includes(rank)) {
+                alert('ランクが正しくありません。');
                 return;
             }
 
             if (
-                action === 'mute' &&
-                !data.mutes.includes(
-                    targetName.toLowerCase()
+                !confirm(
+                    `${target} のランクを ${rank} に変更しますか？`
                 )
             ) {
-                data.mutes.push(
-                    targetName.toLowerCase()
-                );
-            }
-
-            if (action === 'unmute') {
-                data.mutes = data.mutes.filter(
-                    name =>
-                        name !== targetName.toLowerCase()
-                );
-            }
-
-            saveData();
-
-            logAction(
-                actor.username,
-                action,
-                targetName
-            );
-
-            broadcastUserList();
-
-            systemMessage(
-                `${targetName} を${
-                    action === 'mute'
-                        ? 'ミュート'
-                        : 'ミュート解除'
-                }しました。`
-            );
-
-            return;
-        }
-
-        // BAN解除
-        if (action === 'unban') {
-            data.bans = data.bans.filter(
-                name =>
-                    name !== targetName.toLowerCase()
-            );
-
-            saveData();
-
-            logAction(
-                actor.username,
-                'unban',
-                targetName
-            );
-
-            socket.emit('system_message', {
-                text: `${targetName} のBANを解除しました。`
-            });
-
-            return;
-        }
-
-        // チャットロック
-        if (action === 'lock' || action === 'unlock') {
-            data.locked = action === 'lock';
-
-            saveData();
-
-            logAction(actor.username, action);
-
-            io.emit('chat_settings', {
-                chatLocked: data.locked,
-                slowMode: data.slow
-            });
-
-            systemMessage(
-                data.locked
-                    ? 'チャットをロックしました。'
-                    : 'チャットのロックを解除しました。'
-            );
-
-            return;
-        }
-
-        // スローモード
-        if (action === 'slowmode') {
-            const seconds = Number(value);
-
-            if (
-                !Number.isFinite(seconds) ||
-                seconds < 0 ||
-                seconds > 3600
-            ) {
-                return socket.emit('system_message', {
-                    text: '0〜3600秒で指定してください。'
-                });
-            }
-
-            data.slow = Math.floor(seconds);
-
-            saveData();
-
-            logAction(
-                actor.username,
-                `slowmode:${data.slow}`
-            );
-
-            io.emit('chat_settings', {
-                chatLocked: data.locked,
-                slowMode: data.slow
-            });
-
-            systemMessage(
-                data.slow
-                    ? `スローモードを${data.slow}秒に設定しました。`
-                    : 'スローモードを解除しました。'
-            );
-
-            return;
-        }
-
-        // メッセージ固定
-        if (action === 'pin') {
-            const text = cleanText(value, 500);
-
-            if (!text) {
-                return socket.emit('system_message', {
-                    text: '固定するメッセージを入力してください。'
-                });
-            }
-
-            data.pin = text;
-
-            saveData();
-
-            logAction(actor.username, 'pin');
-
-            io.emit('pinned_message', {
-                text
-            });
-
-            return;
-        }
-
-        // 固定解除
-        if (action === 'unpin') {
-            data.pin = null;
-
-            saveData();
-
-            logAction(actor.username, 'unpin');
-
-            io.emit('pinned_message', {
-                text: null
-            });
-
-            return;
-        }
-
-        // NGワード追加
-        if (action === 'ng_add') {
-            const word = cleanText(value, 80);
-
-            if (!word) {
                 return;
             }
 
-            if (!data.ng.includes(word)) {
-                data.ng.push(word);
+            adminAction('rank', target, rank);
+        }
+    );
+
+    // =========================
+    // Kick・BAN・Muteなど
+    // =========================
+
+    document.querySelectorAll('[data-action]').forEach(button => {
+
+        button.addEventListener('click', () => {
+
+            const action = button.dataset.action;
+
+            const target =
+                $('moderationTarget').value.trim();
+
+            if (
+                [
+                    'kick',
+                    'ban',
+                    'unban',
+                    'mute',
+                    'unmute'
+                ].includes(action) &&
+                !target
+            ) {
+                alert(
+                    '対象ユーザー名を入力するか、参加者一覧から選択してください。'
+                );
+
+                return;
             }
 
-            saveData();
+            if (
+                ['kick', 'ban', 'clear', 'lock'].includes(action) &&
+                !confirm('この操作を実行しますか？')
+            ) {
+                return;
+            }
 
-            logAction(
-                actor.username,
-                'ng_add',
-                word
-            );
+            adminAction(action, target);
+        });
 
-            sendPermissionData(socket, actor);
+    });
 
+    // =========================
+    // スローモード
+    // =========================
+
+    $('setSlow').addEventListener('click', () => {
+
+        const seconds = Number(
+            $('slowSeconds').value
+        );
+
+        if (
+            !Number.isFinite(seconds) ||
+            seconds < 0 ||
+            seconds > 3600
+        ) {
+            alert('0〜3600秒で入力してください。');
             return;
         }
 
-        // NGワード削除
-        if (action === 'ng_remove') {
-            const word = cleanText(value, 80);
+        adminAction('slowmode', '', seconds);
+    });
 
-            data.ng = data.ng.filter(
-                item => item !== word
-            );
+    // =========================
+    // メッセージ固定
+    // =========================
 
-            saveData();
+    $('pinButton').addEventListener('click', () => {
 
-            logAction(
-                actor.username,
-                'ng_remove',
-                word
-            );
+        const text = $('pinText').value.trim();
 
-            sendPermissionData(socket, actor);
-
+        if (!text) {
+            alert('固定するメッセージを入力してください。');
             return;
         }
 
-        // チャット履歴消去
-        if (action === 'clear') {
-            data.messages = [];
-
-            saveData();
-
-            logAction(actor.username, 'clear');
-
-            io.emit('clear_messages');
-        }
+        adminAction('pin', '', text);
     });
 
-    socket.on('disconnect', () => {
-        const user = connectedUsers.get(socket.id);
+    // =========================
+    // NGワード
+    // =========================
 
-        connectedUsers.delete(socket.id);
+    $('addNg').addEventListener('click', () => {
 
-        if (user) {
-            broadcastUserList();
+        const word = $('ngWord').value.trim();
 
-            systemMessage(
-                `${user.username} が退出しました。`
-            );
+        if (!word) {
+            alert('NGワードを入力してください。');
+            return;
         }
+
+        adminAction('ng_add', '', word);
     });
-});
 
-server.listen(PORT, () => {
-    console.log(`サーバー起動: port ${PORT}`);
+    $('removeNg').addEventListener('click', () => {
 
-    if (!ADMIN_SECRET) {
-        console.warn(
-            'ADMIN_SECRET が設定されていません。Ownerログインには秘密鍵が必要です。'
+        const word = $('ngWord').value.trim();
+
+        if (!word) {
+            alert('削除するNGワードを入力してください。');
+            return;
+        }
+
+        adminAction('ng_remove', '', word);
+    });
+
+    function renderNGWords(words) {
+
+        $('ngList').textContent =
+            words.length
+                ? `登録中：${words.join('、')}`
+                : '登録中のNGワードはありません。';
+    }
+
+    // =========================
+    // ランク別権限設定
+    // =========================
+
+    function renderPermissionChecks() {
+
+        const rank = $('permissionRank').value;
+
+        const current = permissions[rank] || {};
+
+        const box = $('permissionChecks');
+
+        box.replaceChildren();
+
+        Object.entries(permissionNames).forEach(
+            ([key, label]) => {
+
+                const row =
+                    document.createElement('label');
+
+                row.className = 'check';
+
+                const input =
+                    document.createElement('input');
+
+                input.type = 'checkbox';
+
+                input.dataset.permission = key;
+
+                input.checked = !!current[key];
+
+                input.disabled = myRole !== 'Owner';
+
+                const text =
+                    document.createTextNode(` ${label}`);
+
+                row.appendChild(input);
+                row.appendChild(text);
+
+                box.appendChild(row);
+            }
         );
     }
-});
+
+    $('permissionRank').addEventListener(
+        'change',
+        renderPermissionChecks
+    );
+
+    $('savePermissions').addEventListener(
+        'click',
+        () => {
+
+            if (myRole !== 'Owner') {
+                alert('権限設定はOwnerのみ変更できます。');
+                return;
+            }
+
+            const rank =
+                $('permissionRank').value;
+
+            const values = {};
+
+            $('permissionChecks')
+                .querySelectorAll('input[data-permission]')
+                .forEach(input => {
+
+                    values[input.dataset.permission] =
+                        input.checked;
+                });
+
+            socket.emit('admin_action', {
+                action: 'set_permissions',
+                rank,
+                value: values
+            });
+        }
+    );
+
+})();
+</script>
+
+</body>
+</html>
