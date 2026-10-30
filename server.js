@@ -241,6 +241,13 @@ io.on('connection', socket => {
 
         const usernameKey = username.toLowerCase();
 
+        // Ownerパスワードを先に確認
+        const isOwner = safeCompare(
+            payload.adminCode,
+            ADMIN_SECRET
+        );
+
+        // BANチェック
         if (data.bannedUsers.includes(usernameKey)) {
             socket.emit(
                 'login_error',
@@ -249,23 +256,34 @@ io.on('connection', socket => {
             return;
         }
 
-        for (const existingUser of users.values()) {
+        // ユーザー名の重複チェック
+        for (const [existingSocketId, existingUser] of users.entries()) {
             if (
-                existingUser.username.toLowerCase() ===
+                existingUser.username.toLowerCase() !==
                 usernameKey
             ) {
+                continue;
+            }
+
+            // Owner以外は重複ログイン禁止
+            if (!isOwner) {
                 socket.emit(
                     'login_error',
                     'そのユーザー名はすでに使用されています'
                 );
                 return;
             }
-        }
 
-        const isOwner = safeCompare(
-            payload.adminCode,
-            ADMIN_SECRET
-        );
+            // Ownerなら既存の同名ユーザーを切断
+            io.to(existingSocketId).emit(
+                'system_message',
+                'Ownerが再ログインしたため接続を終了しました'
+            );
+
+            users.delete(existingSocketId);
+
+            io.in(existingSocketId).disconnectSockets(true);
+        }
 
         // 保存されたランクを読み込む
         let role = isOwner
@@ -306,6 +324,7 @@ io.on('connection', socket => {
             `${username} が入室しました`
         );
     });
+
 
     // Ownerだけがランク別権限を取得できる
     socket.on('get_permissions', () => {
