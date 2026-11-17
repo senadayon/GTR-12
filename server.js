@@ -228,6 +228,9 @@ function broadcastUsers(roomId) {
 function validAvatarUrl(url) {
   if (typeof url !== 'string' || url.length > 1000) return false;
 
+  // 空文字ならアイコンをリセット
+  if (url === '') return true;
+
   // 自分のサーバーにアップロードした画像
   if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(url)) return true;
 
