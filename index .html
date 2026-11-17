@@ -7,9 +7,7 @@
 <script src="/socket.io/socket.io.js"></script>
 
 <style>
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
     margin: 0;
@@ -18,9 +16,7 @@ body {
     color: #f5f5f5;
 }
 
-button, input, select {
-    font: inherit;
-}
+button, input, select { font: inherit; }
 
 button {
     padding: 9px 12px;
@@ -32,14 +28,8 @@ button {
     margin: 3px 0;
 }
 
-button:hover {
-    filter: brightness(1.12);
-}
-
-button:disabled {
-    opacity: .5;
-    cursor: not-allowed;
-}
+button:hover { filter: brightness(1.12); }
+button:disabled { opacity: .5; cursor: not-allowed; }
 
 input, select {
     width: 100%;
@@ -69,10 +59,7 @@ header {
     border-radius: 12px;
 }
 
-#joinButton {
-    width: 100%;
-    margin-top: 10px;
-}
+#joinButton { width: 100%; margin-top: 10px; }
 
 #error {
     color: #ff8585;
@@ -112,13 +99,8 @@ header {
     overflow-wrap: anywhere;
 }
 
-.message-header {
-    margin-bottom: 5px;
-}
-
-.message-name {
-    font-weight: bold;
-}
+.message-header { margin-bottom: 5px; }
+.message-name { font-weight: bold; }
 
 .message-role {
     color: #a9b2ff;
@@ -132,9 +114,7 @@ header {
     margin-left: 8px;
 }
 
-.message-text {
-    white-space: pre-wrap;
-}
+.message-text { white-space: pre-wrap; }
 
 #bottom {
     display: flex;
@@ -143,14 +123,8 @@ header {
     background: #242731;
 }
 
-#messageInput {
-    flex: 1;
-    min-width: 0;
-}
-
-#sendButton {
-    align-self: center;
-}
+#messageInput { flex: 1; min-width: 0; }
+#sendButton { align-self: center; }
 
 #sidebar {
     width: 270px;
@@ -190,14 +164,8 @@ header {
     border-radius: 8px;
 }
 
-#adminPanel h3,
-#adminPanel h4 {
-    margin-top: 10px;
-}
-
-#adminPanel button {
-    width: 100%;
-}
+#adminPanel h3, #adminPanel h4 { margin-top: 10px; }
+#adminPanel button { width: 100%; }
 
 .section {
     border-top: 1px solid #454955;
@@ -237,9 +205,7 @@ header {
     accent-color: #5865f2;
 }
 
-.permission-item span {
-    overflow-wrap: anywhere;
-}
+.permission-item span { overflow-wrap: anywhere; }
 
 #permissionStatus {
     color: #ffcf75;
@@ -253,38 +219,7 @@ header {
     line-height: 1.6;
 }
 
-.hidden {
-    display: none !important;
-}
-
-@media (max-width: 650px) {
-    #sidebar {
-        width: 145px;
-        padding: 8px;
-        font-size: 13px;
-    }
-
-    #messages {
-        padding: 8px;
-    }
-
-    #bottom {
-        padding: 6px;
-        gap: 4px;
-    }
-
-    #sendButton {
-        padding: 9px;
-    }
-
-    #adminPanel {
-        padding: 7px;
-    }
-
-    .message {
-        padding: 8px;
-    }
-}
+.hidden { display: none !important; }
 
 /* プロフィールアイコン */
 .avatar {
@@ -295,6 +230,7 @@ header {
     background: #454955;
     flex: 0 0 36px;
 }
+
 .avatar-placeholder {
     width: 36px;
     height: 36px;
@@ -306,20 +242,57 @@ header {
     flex: 0 0 36px;
     font-weight: bold;
 }
+
 .profile-box {
     padding: 10px;
     margin-bottom: 12px;
     background: #292d38;
     border-radius: 8px;
 }
+
 .profile-box button { width: 100%; }
 .profile-actions { display: flex; gap: 5px; }
 .profile-actions button { flex: 1; }
-.message-header, .user-name-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-.message-header .avatar, .user-name-row .avatar { width: 32px; height: 32px; flex-basis: 32px; }
-.message-header .avatar-placeholder, .user-name-row .avatar-placeholder { width: 32px; height: 32px; flex-basis: 32px; }
+
+.message-header, .user-name-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+
+.message-header .avatar, .user-name-row .avatar {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+}
+
+.message-header .avatar-placeholder, .user-name-row .avatar-placeholder {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+}
+
 .permission-hidden { display: none !important; }
 
+@media (max-width: 650px) {
+    #sidebar {
+        width: 145px;
+        padding: 8px;
+        font-size: 13px;
+    }
+
+    #messages { padding: 8px; }
+
+    #bottom {
+        padding: 6px;
+        gap: 4px;
+    }
+
+    #sendButton { padding: 9px; }
+    #adminPanel { padding: 7px; }
+    .message { padding: 8px; }
+}
 </style>
 </head>
 
@@ -375,24 +348,44 @@ header {
         </main>
 
         <aside id="sidebar">
+
             <div class="profile-box">
                 <h3>プロフィールアイコン</h3>
+
                 <div class="user-name-row">
                     <img id="myAvatar" class="avatar" alt="自分のアイコン" hidden>
                     <span id="myAvatarPlaceholder" class="avatar-placeholder">?</span>
                     <strong id="myProfileName">未入室</strong>
                 </div>
+
                 <label for="avatarFile">画像をアップロード</label>
-                <input id="avatarFile" type="file" accept="image/png,image/jpeg,image/gif,image/webp">
-                <button type="button" onclick="uploadAvatar()">画像を設定</button>
+                <input
+                    id="avatarFile"
+                    type="file"
+                    accept="image/png,image/jpeg,image/gif,image/webp"
+                >
+
+                <button type="button" onclick="uploadAvatar()">
+                    画像を設定
+                </button>
+
                 <label for="avatarUrl">画像URL（HTTPS）</label>
-                <input id="avatarUrl" type="url" placeholder="https://example.com/icon.png">
+                <input
+                    id="avatarUrl"
+                    type="url"
+                    placeholder="https://example.com/icon.png"
+                >
+
                 <div class="profile-actions">
                     <button type="button" onclick="saveAvatarUrl()">URL設定</button>
                     <button type="button" onclick="resetAvatar()">リセット</button>
                 </div>
-                <p class="small-note">画像はPNG・JPG・GIF・WebPに対応</p>
+
+                <p class="small-note">
+                    画像はPNG・JPG・GIF・WebPに対応（5MBまで）
+                </p>
             </div>
+
             <h3>オンラインユーザー</h3>
             <ul id="userList"></ul>
 
@@ -404,7 +397,7 @@ header {
 
                 <h3>管理者パネル</h3>
 
-                <div class="section" data-permission-section>
+                <div class="section">
                     <h4>ユーザー管理</h4>
 
                     <label for="targetUser">対象ユーザー名</label>
@@ -485,7 +478,7 @@ header {
                     <div id="permissionStatus" role="status"></div>
                 </div>
 
-                <div class="section" data-permission-section>
+                <div class="section">
                     <h4>チャット設定</h4>
 
                     <button data-permission="lock" onclick="adminAction('lock')">
@@ -496,9 +489,7 @@ header {
                         ロック解除
                     </button>
 
-                    <label for="slowValue">
-                        スローモード（秒）
-                    </label>
+                    <label for="slowValue">スローモード（秒）</label>
 
                     <input
                         id="slowValue"
@@ -513,7 +504,7 @@ header {
                     </button>
                 </div>
 
-                <div class="section" data-permission-section>
+                <div class="section">
                     <h4>固定メッセージ</h4>
 
                     <input
@@ -531,7 +522,7 @@ header {
                     </button>
                 </div>
 
-                <div class="section" data-permission-section>
+                <div class="section">
                     <h4>NGワード</h4>
 
                     <input
@@ -549,7 +540,7 @@ header {
                     </button>
                 </div>
 
-                <div class="section" data-permission-section>
+                <div class="section">
                     <h4>チャット履歴</h4>
 
                     <button data-permission="clear" onclick="clearMessages()">
@@ -559,12 +550,12 @@ header {
 
             </div>
         </aside>
-
     </div>
 </section>
 
 <script>
 const socket = io();
+
 let myUsername = '';
 let myRole = 'Regular';
 let joined = false;
@@ -573,196 +564,310 @@ let currentPermissions = {};
 let myAvatarUrl = '';
 
 const permissionLabels = {
-    kick: 'ユーザーをキック', ban: 'ユーザーをBAN', unban: 'BAN解除',
-    mute: 'ユーザーをミュート', unmute: 'ミュート解除', lock: 'チャットをロック',
-    unlock: 'チャットのロック解除', slowmode: 'スローモード設定',
-    pin: 'メッセージ固定', unpin: '固定解除', ng_add: 'NGワード追加',
-    ng_remove: 'NGワード削除', clear: '全メッセージ削除'
+    kick: 'ユーザーをキック',
+    ban: 'ユーザーをBAN',
+    unban: 'BAN解除',
+    mute: 'ユーザーをミュート',
+    unmute: 'ミュート解除',
+    lock: 'チャットをロック',
+    unlock: 'チャットのロック解除',
+    slowmode: 'スローモード設定',
+    pin: 'メッセージ固定',
+    unpin: '固定解除',
+    ng_add: 'NGワード追加',
+    ng_remove: 'NGワード削除',
+    clear: '全メッセージ削除'
 };
-const permissionRoles = ['Admin', 'Moderator', 'Member'];
-function byId(id) { return document.getElementById(id); }
 
+const permissionRoles = ['Admin', 'Moderator', 'Member'];
+
+function byId(id) {
+    return document.getElementById(id);
+}
+
+// 入室
 function joinChat() {
     if (joined) return;
+
     const username = byId('username').value.trim();
     const adminCode = byId('adminCode').value;
-    if (!username) { byId('error').textContent = 'ユーザー名を入力してください'; return; }
+
+    if (!username) {
+        byId('error').textContent = 'ユーザー名を入力してください';
+        return;
+    }
+
     byId('error').textContent = '';
     byId('joinButton').disabled = true;
+
     socket.emit('join', { username, adminCode });
 }
+
+// 入室エラー
 socket.on('login_error', message => {
-    byId('error').textContent = message;
+    byId('error').textContent = String(message || '入室できませんでした');
     byId('joinButton').disabled = false;
 });
 
+// 入室完了
 socket.on('joined', data => {
     joined = true;
-    myUsername = data.username;
+    myUsername = data.username || '';
     myRole = data.role || 'Regular';
-    currentPermissions = data.permissions || {};
     myAvatarUrl = data.avatarUrl || '';
+    currentPermissions = data.permissions || {};
+
     byId('login').style.display = 'none';
     byId('chat').style.display = 'block';
+
     byId('myProfileName').textContent = myUsername;
+
     updateMyAvatar();
     updateRoomTitle();
     updateAdminPanel();
+
     byId('messages').replaceChildren();
-    if (Array.isArray(data.messages)) data.messages.forEach(addMessage);
+
+    if (Array.isArray(data.messages)) {
+        data.messages.forEach(addMessage);
+    }
+
     updatePinnedMessage(data.pinnedMessage);
-    if (myRole === 'Owner') socket.emit('get_permissions');
+
+    if (myRole === 'Owner') {
+        socket.emit('get_permissions');
+    }
 });
 
+// タイトル更新
 function updateRoomTitle() {
-    byId('roomTitle').textContent = '入ってる名前＝' + myUsername + ' [' + myRole + ']';
+    byId('roomTitle').textContent =
+        '入ってる名前＝' + myUsername + ' [' + myRole + ']';
 }
+
+// 自分の権限確認
 function hasClientPermission(permission) {
-    return myRole === 'Owner' || currentPermissions?.[permission] === true;
+    return myRole === 'Owner' ||
+        currentPermissions?.[permission] === true;
 }
+
+// 管理パネル表示
 function updateAdminPanel() {
     const owner = myRole === 'Owner';
-    let anyPermission = owner;
+    let canOpen = owner;
+
     document.querySelectorAll('#adminPanel button[data-permission]').forEach(button => {
         const allowed = hasClientPermission(button.dataset.permission);
+
         button.classList.toggle('permission-hidden', !allowed);
-        if (allowed) anyPermission = true;
+
+        if (allowed) canOpen = true;
     });
+
     document.querySelectorAll('#adminPanel [data-owner-only]').forEach(section => {
         section.classList.toggle('permission-hidden', !owner);
     });
-    document.querySelectorAll('#adminPanel [data-permission-section]').forEach(section => {
-        const hasVisibleButton = [...section.querySelectorAll('button[data-permission]')]
-            .some(button => !button.classList.contains('permission-hidden'));
-        section.classList.toggle('permission-hidden', !hasVisibleButton);
+
+    document.querySelectorAll('#adminPanel .section').forEach(section => {
+        if (section.hasAttribute('data-owner-only')) return;
+
+        const permissionButtons = [
+            ...section.querySelectorAll('button[data-permission]')
+        ];
+
+        if (permissionButtons.length) {
+            const visible = permissionButtons.some(button =>
+                !button.classList.contains('permission-hidden')
+            );
+
+            section.classList.toggle('permission-hidden', !visible);
+        }
     });
-    byId('adminToggle').classList.toggle('hidden', !anyPermission);
-    if (!anyPermission) byId('adminPanel').style.display = 'none';
+
+    byId('adminToggle').classList.toggle('hidden', !canOpen);
+
+    if (!canOpen) {
+        byId('adminPanel').style.display = 'none';
+    }
 }
+
+// 管理パネル開閉
 function toggleAdmin() {
-    if (!hasClientPermission('kick') && !Object.keys(permissionLabels).some(hasClientPermission) && myRole !== 'Owner') {
+    const canManage =
+        myRole === 'Owner' ||
+        Object.keys(permissionLabels).some(hasClientPermission);
+
+    if (!canManage) {
         showNotice('管理操作の権限がありません');
         return;
     }
+
     const panel = byId('adminPanel');
     const opening = panel.style.display !== 'block';
+
     panel.style.display = opening ? 'block' : 'none';
-    if (opening && myRole === 'Owner') socket.emit('get_permissions');
+
+    if (opening && myRole === 'Owner') {
+        socket.emit('get_permissions');
+    }
 }
 
-socket.on('system_message', message => showNotice(message));
-function showNotice(message) { byId('notice').textContent = String(message || ''); }
-socket.on('chat_message', addMessage);
+// サーバーからの通知
+socket.on('system_message', message => {
+    showNotice(message);
+});
 
-function makeAvatar(url, username, sizeClass = 'avatar') {
-    const wrap = document.createElement('span');
-    wrap.className = 'user-name-row';
-    wrap.style.display = 'inline-flex';
-    wrap.style.verticalAlign = 'middle';
+function showNotice(message) {
+    byId('notice').textContent = String(message || '');
+}
+
+// アイコン作成
+function makeAvatar(url, username) {
     if (url) {
         const img = document.createElement('img');
-        img.className = sizeClass;
+
+        img.className = 'avatar';
         img.src = url;
         img.alt = String(username || '') + 'のアイコン';
         img.dataset.avatarUsername = String(username || '').toLowerCase();
-        img.onerror = () => { img.replaceWith(makePlaceholder(username, sizeClass)); };
-        wrap.appendChild(img);
-    } else {
-        const placeholder = makePlaceholder(username, sizeClass);
-        placeholder.dataset.avatarUsername = String(username || '').toLowerCase();
-        wrap.appendChild(placeholder);
+
+        img.onerror = () => {
+            img.replaceWith(makeAvatarPlaceholder(username));
+        };
+
+        return img;
     }
-    return wrap;
+
+    const placeholder = makeAvatarPlaceholder(username);
+    placeholder.dataset.avatarUsername =
+        String(username || '').toLowerCase();
+
+    return placeholder;
 }
-function makePlaceholder(username, sizeClass = 'avatar-placeholder') {
+
+function makeAvatarPlaceholder(username) {
     const el = document.createElement('span');
-    el.className = sizeClass === 'avatar' ? 'avatar-placeholder' : 'avatar-placeholder';
-    el.textContent = String(username || '?').trim().slice(0, 1).toUpperCase() || '?';
-    el.dataset.avatarUsername = String(username || '').toLowerCase();
+
+    el.className = 'avatar-placeholder';
+    el.textContent =
+        String(username || '?').trim().slice(0, 1).toUpperCase() || '?';
+
     return el;
 }
+
+// メッセージ表示
+socket.on('chat_message', addMessage);
+
 function addMessage(message) {
     if (!message || typeof message !== 'object') return;
+
     const box = document.createElement('div');
     box.className = 'message';
+
     const header = document.createElement('div');
     header.className = 'message-header';
-    const avatar = makeAvatar(message.avatarUrl || '', message.username || 'Unknown');
+
+    header.appendChild(
+        makeAvatar(message.avatarUrl || '', message.username || 'Unknown')
+    );
+
     const name = document.createElement('span');
     name.className = 'message-name';
     name.textContent = String(message.username || 'Unknown');
+
     const role = document.createElement('span');
     role.className = 'message-role';
     role.textContent = '[' + String(message.role || 'Regular') + ']';
+
     const time = document.createElement('span');
     time.className = 'message-time';
     time.textContent = String(message.time || '');
-    header.append(avatar, name, role, time);
+
+    header.append(name, role, time);
+
     const text = document.createElement('div');
     text.className = 'message-text';
     text.textContent = String(message.text || '');
+
     box.append(header, text);
+
     byId('messages').appendChild(box);
-    byId('messages').scrollTop = byId('messages').scrollHeight;
+
+    byId('messages').scrollTop =
+        byId('messages').scrollHeight;
 }
+
+// メッセージ送信
 function sendMessage() {
     if (!joined) return;
+
     const input = byId('messageInput');
     const text = input.value.trim();
+
     if (!text) return;
+
     socket.emit('chat_message', text);
+
     input.value = '';
     input.focus();
 }
 
+// オンライン一覧
 socket.on('user_list', users => {
     const list = byId('userList');
     list.replaceChildren();
+
     if (!Array.isArray(users)) return;
+
     users.forEach(user => {
         const item = document.createElement('li');
+
         const row = document.createElement('div');
         row.className = 'user-name-row';
-        row.append(makeAvatar(user.avatarUrl || '', user.username || 'Unknown'));
+
+        row.appendChild(
+            makeAvatar(user.avatarUrl || '', user.username || 'Unknown')
+        );
+
         const name = document.createElement('span');
         name.textContent = String(user.username || 'Unknown');
-        row.append(name);
+
+        row.appendChild(name);
+
         const role = document.createElement('div');
         role.className = 'user-role';
         role.textContent = String(user.role || 'Regular');
+
         item.append(row, role);
         list.appendChild(item);
     });
 });
 
+// アイコン変更通知
 socket.on('profile_updated', data => {
     if (!data || typeof data.username !== 'string') return;
-    const key = data.username.toLowerCase();
+
+    const usernameKey = data.username.toLowerCase();
     const url = String(data.avatarUrl || '');
-    if (key === myUsername.toLowerCase()) {
+
+    if (usernameKey === myUsername.toLowerCase()) {
         myAvatarUrl = url;
         updateMyAvatar();
     }
-    document.querySelectorAll('[data-avatar-username]').forEach(el => {
-        if (el.dataset.avatarUsername !== key) return;
-        if (url && el.tagName === 'IMG') {
-            el.src = url;
-        } else if (url) {
-            const img = document.createElement('img');
-            img.className = 'avatar';
-            img.src = url;
-            img.alt = data.username + 'のアイコン';
-            img.dataset.avatarUsername = key;
-            el.replaceWith(img);
-        } else if (el.tagName === 'IMG') {
-            el.replaceWith(makePlaceholder(data.username));
-        }
+
+    document.querySelectorAll('[data-avatar-username]').forEach(old => {
+        if (old.dataset.avatarUsername !== usernameKey) return;
+
+        const replacement = makeAvatar(url, data.username);
+        old.replaceWith(replacement);
     });
-    // ユーザー一覧はサーバーから再取得されるuser_listでも更新されます。
 });
+
+// 自分のアイコン表示
 function updateMyAvatar() {
     const img = byId('myAvatar');
     const placeholder = byId('myAvatarPlaceholder');
+
     if (myAvatarUrl) {
         img.src = myAvatarUrl;
         img.hidden = false;
@@ -773,50 +878,119 @@ function updateMyAvatar() {
         placeholder.hidden = false;
     }
 }
+
+// アイコンアップロード
 async function uploadAvatar() {
-    if (!joined) return showNotice('先にチャットに参加してください');
+    if (!joined) {
+        return showNotice('先にチャットに参加してください');
+    }
+
     const file = byId('avatarFile').files[0];
-    if (!file) return showNotice('アップロードする画像を選んでください');
-    if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) return showNotice('PNG・JPG・GIF・WebP画像を選んでください');
-    if (file.size > 5 * 1024 * 1024) return showNotice('画像は5MB以下にしてください');
+
+    if (!file) {
+        return showNotice('アップロードする画像を選んでください');
+    }
+
+    if (!/^image\/(jpeg|png|gif|webp)$/.test(file.type)) {
+        return showNotice('PNG・JPG・GIF・WebP画像を選んでください');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+        return showNotice('画像は5MB以下にしてください');
+    }
+
     const form = new FormData();
+
     form.append('file', file);
     form.append('socketId', socket.id);
+
     try {
-        const response = await fetch('/api/avatar', { method: 'POST', body: form });
+        const response = await fetch('/api/avatar', {
+            method: 'POST',
+            body: form
+        });
+
         const result = await response.json();
-        if (!response.ok) throw new Error(result.error || '画像を設定できませんでした');
+
+        if (!response.ok) {
+            throw new Error(result.error || '画像を設定できませんでした');
+        }
+
         byId('avatarFile').value = '';
+
         showNotice('プロフィールアイコンを設定しました');
-    } catch (error) { showNotice(error.message || '画像アップロードに失敗しました'); }
+
+    } catch (error) {
+        showNotice(error.message || '画像アップロードに失敗しました');
+    }
 }
+
+// URLからアイコン設定
 function saveAvatarUrl() {
-    if (!joined) return showNotice('先にチャットに参加してください');
+    if (!joined) {
+        return showNotice('先にチャットに参加してください');
+    }
+
     const url = byId('avatarUrl').value.trim();
-    if (!url) return showNotice('画像URLを入力してください');
-    try { if (new URL(url).protocol !== 'https:') throw new Error(); }
-    catch (_) { return showNotice('https:// から始まる画像URLを入力してください'); }
+
+    if (!url) {
+        return showNotice('画像URLを入力してください');
+    }
+
+    try {
+        const parsed = new URL(url);
+
+        if (parsed.protocol !== 'https:') {
+            throw new Error();
+        }
+
+    } catch (_) {
+        return showNotice('https:// から始まる画像URLを入力してください');
+    }
+
     socket.emit('set_avatar', { url });
-    byId('avatarUrl').value = '';
-}
-function resetAvatar() {
-    if (!joined) return showNotice('先にチャットに参加してください');
-    socket.emit('set_avatar', { url: '' });
+
     byId('avatarUrl').value = '';
 }
 
+// アイコンリセット
+function resetAvatar() {
+    if (!joined) {
+        return showNotice('先にチャットに参加してください');
+    }
+
+    socket.emit('set_avatar', { url: '' });
+
+    byId('avatarUrl').value = '';
+}
+
+// ランク変更通知
 socket.on('role_updated', data => {
     if (!data || data.username !== myUsername) return;
+
     myRole = data.role || 'Regular';
     currentPermissions = data.permissions || {};
+
     updateRoomTitle();
     updateAdminPanel();
-    showNotice('あなたのランクが ' + myRole + ' に変更されました');
-    if (myRole === 'Owner') socket.emit('get_permissions');
+
+    showNotice(
+        'あなたのランクが ' + myRole + ' に変更されました'
+    );
+
+    if (myRole === 'Owner') {
+        socket.emit('get_permissions');
+    }
 });
-socket.on('pinned_message', updatePinnedMessage);
+
+// 固定メッセージ更新
+socket.on('pinned_message', text => {
+    updatePinnedMessage(text);
+});
+
 function updatePinnedMessage(text) {
     const pinned = byId('pinned');
+
     if (typeof text === 'string' && text.length > 0) {
         pinned.style.display = 'block';
         pinned.textContent = '📌 ' + text;
@@ -825,102 +999,244 @@ function updatePinnedMessage(text) {
         pinned.textContent = '';
     }
 }
-socket.on('clear_messages', () => byId('messages').replaceChildren());
 
+// 全メッセージ削除
+socket.on('clear_messages', () => {
+    byId('messages').replaceChildren();
+});
+
+// 管理操作送信
 function adminAction(action, value = '') {
-    if (!joined) return showNotice('先にチャットに参加してください');
-    if (!hasClientPermission(action)) return showNotice('この操作を実行する権限がありません');
-    socket.emit('admin_action', { action, target: byId('targetUser').value.trim(), value });
+    if (!joined) {
+        showNotice('先にチャットに参加してください');
+        return;
+    }
+
+    if (!hasClientPermission(action)) {
+        showNotice('この操作を実行する権限がありません');
+        return;
+    }
+
+    socket.emit('admin_action', {
+        action,
+        target: byId('targetUser').value.trim(),
+        value
+    });
 }
+
+// ランク変更
 function changeRank() {
     const target = byId('targetUser').value.trim();
     const rank = byId('rankValue').value;
-    if (myRole !== 'Owner') return showNotice('ランク変更はOwner専用です');
-    if (!target) return showNotice('対象ユーザー名を入力してください');
-    if (!confirm(target + ' のランクを ' + rank + ' に変更しますか？')) return;
+
+    if (myRole !== 'Owner') {
+        return showNotice('ランク変更はOwner専用です');
+    }
+
+    if (!target) {
+        return showNotice('対象ユーザー名を入力してください');
+    }
+
+    if (!confirm(
+        target + ' のランクを ' + rank + ' に変更しますか？'
+    )) {
+        return;
+    }
+
     adminAction('rank', rank);
 }
+
+// スローモード設定
 function setSlowMode() {
     const seconds = Number(byId('slowValue').value);
-    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 60) return showNotice('0〜60秒で設定してください');
+
+    if (!Number.isFinite(seconds) || seconds < 0 || seconds > 60) {
+        return showNotice('0〜60秒で設定してください');
+    }
+
     adminAction('slowmode', seconds);
 }
+
+// 固定メッセージ
 function pinMessage() {
     const text = byId('pinValue').value.trim();
-    if (!text) return showNotice('固定する文章を入力してください');
+
+    if (!text) {
+        return showNotice('固定する文章を入力してください');
+    }
+
     adminAction('pin', text);
 }
+
+// NGワード操作
 function changeNGWord(action) {
     const word = byId('ngValue').value.trim();
-    if (!word) return showNotice('NGワードを入力してください');
+
+    if (!word) {
+        return showNotice('NGワードを入力してください');
+    }
+
     adminAction(action, word);
 }
+
+// 全メッセージ削除
 function clearMessages() {
-    if (!confirm('チャット履歴をすべて削除しますか？')) return;
+    if (!confirm('チャット履歴をすべて削除しますか？')) {
+        return;
+    }
+
     adminAction('clear');
 }
 
+// 権限データ受信
 socket.on('permissions_data', data => {
-    if (myRole !== 'Owner' || !data || typeof data !== 'object') return;
+    if (myRole !== 'Owner') return;
+
+    if (!data || typeof data !== 'object') {
+        showPermissionStatus('権限データが無効です');
+        return;
+    }
+
     permissionData = data;
+
     renderPermissionEditor();
 });
+
+// 権限設定画面を作成
 function renderPermissionEditor() {
     const container = byId('permissionList');
     container.replaceChildren();
-    if (myRole !== 'Owner') { container.textContent = '権限設定を表示できるのはOwnerだけです'; return; }
-    if (!permissionData) { container.textContent = '権限設定を読み込んでいます...'; return; }
+
+    if (myRole !== 'Owner') {
+        container.textContent =
+            '権限設定を表示できるのはOwnerだけです';
+        return;
+    }
+
+    if (!permissionData) {
+        container.textContent =
+            '権限設定を読み込んでいます...';
+        return;
+    }
+
     const role = byId('permissionRole').value;
     const permissions = permissionData[role];
-    if (!permissions) { container.textContent = 'このランクの権限データがありません'; return; }
+
+    if (!permissions) {
+        container.textContent =
+            'このランクの権限データがありません';
+        return;
+    }
+
     Object.entries(permissionLabels).forEach(([key, label]) => {
         const row = document.createElement('label');
         row.className = 'permission-item';
+
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.dataset.permission = key;
         checkbox.checked = permissions[key] === true;
+
         const text = document.createElement('span');
         text.textContent = label;
+
         row.append(checkbox, text);
+
         container.appendChild(row);
     });
-    showPermissionStatus(role + ' の権限設定を表示中');
+
+    showPermissionStatus(
+        role + ' の権限設定を表示中'
+    );
 }
-byId('permissionRole').addEventListener('change', renderPermissionEditor);
+
+// 選択ランク変更
+byId('permissionRole').addEventListener('change', () => {
+    renderPermissionEditor();
+});
+
+// 権限保存
 function savePermissions() {
-    if (myRole !== 'Owner') return showPermissionStatus('権限設定を変更できるのはOwnerだけです');
+    if (myRole !== 'Owner') {
+        return showPermissionStatus(
+            '権限設定を変更できるのはOwnerだけです'
+        );
+    }
+
     const role = byId('permissionRole').value;
-    if (!permissionRoles.includes(role)) return showPermissionStatus('設定対象のランクが無効です');
-    if (!permissionData) return showPermissionStatus('権限データを読み込めていません');
+
+    if (!permissionRoles.includes(role)) {
+        return showPermissionStatus('設定対象のランクが無効です');
+    }
+
+    if (!permissionData) {
+        return showPermissionStatus('権限データを読み込めていません');
+    }
+
     const permissions = {};
-    byId('permissionList').querySelectorAll('input[data-permission]').forEach(checkbox => {
-        permissions[checkbox.dataset.permission] = checkbox.checked;
+
+    byId('permissionList')
+        .querySelectorAll('input[data-permission]')
+        .forEach(checkbox => {
+            permissions[checkbox.dataset.permission] =
+                checkbox.checked;
+        });
+
+    socket.emit('admin_action', {
+        action: 'set_permissions',
+        role,
+        permissions
     });
-    socket.emit('admin_action', { action: 'set_permissions', role, permissions });
-    showPermissionStatus(role + ' の権限設定を保存しています...');
+
+    showPermissionStatus(
+        role + ' の権限設定を保存しています...'
+    );
 }
+
+// 権限更新通知
 socket.on('permissions_updated', data => {
     if (!data || !data.role || !data.permissions) return;
+
     if (data.role === myRole) {
         currentPermissions = data.permissions;
         updateAdminPanel();
     }
-    if (myRole === 'Owner') {
-        // サーバーから届くのは接続中のOwner自身の権限なので、編集データ全体は再取得する。
-        socket.emit('get_permissions');
-    }
 });
+
+// 権限設定状態表示
+function showPermissionStatus(message) {
+    byId('permissionStatus').textContent =
+        String(message || '');
+}
+
+// 権限保存結果の通知
 socket.on('system_message', message => {
     const text = String(message || '');
-    if (text.includes('権限設定を保存しました') || text.includes('権限設定はOwnerのみ')) showPermissionStatus(text);
-});
-function showPermissionStatus(message) { byId('permissionStatus').textContent = String(message || ''); }
 
-byId('messageInput').addEventListener('keydown', event => { if (event.key === 'Enter') sendMessage(); });
-byId('username').addEventListener('keydown', event => { if (event.key === 'Enter') joinChat(); });
+    if (text.includes('権限設定')) {
+        showPermissionStatus(text);
+    }
+});
+
+// Enterキーで送信
+byId('messageInput').addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// ユーザー名欄でEnterを押したら入室
+byId('username').addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+        joinChat();
+    }
+});
+
+// 接続エラー
 socket.on('connect_error', () => {
-    byId('error').textContent = 'サーバーに接続できません。再読み込みしてみてください。';
+    byId('error').textContent =
+        'サーバーに接続できません。再読み込みしてみてください。';
+
     byId('joinButton').disabled = false;
 });
 </script>
