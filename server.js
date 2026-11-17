@@ -1,4 +1,3 @@
-
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -48,11 +47,16 @@ const PERMISSION_KEYS = Object.keys(PERMISSION_LABELS);
 
 const DEFAULT_PERMISSIONS = {
   Owner: Object.fromEntries(PERMISSION_KEYS.map(k => [k, true])),
+
   Admin: Object.fromEntries(PERMISSION_KEYS.map(k => [k, true])),
+
   Moderator: Object.fromEntries(PERMISSION_KEYS.map(k => [
-    k, ['kick', 'mute', 'unmute', 'slowmode', 'pin', 'unpin'].includes(k)
+    k,
+    ['kick', 'mute', 'unmute', 'slowmode', 'pin', 'unpin'].includes(k)
   ])),
+
   Member: Object.fromEntries(PERMISSION_KEYS.map(k => [k, false])),
+
   Regular: Object.fromEntries(PERMISSION_KEYS.map(k => [k, false]))
 };
 
@@ -101,7 +105,6 @@ function loadData() {
       };
     }
 
-    // Ownerは常に全権限、Regularは常に管理権限なし
     d.permissions.Owner = { ...DEFAULT_PERMISSIONS.Owner };
     d.permissions.Regular = { ...DEFAULT_PERMISSIONS.Regular };
 
@@ -109,6 +112,7 @@ function loadData() {
     d.adminLogs = d.adminLogs.slice(-500);
 
     return d;
+
   } catch (error) {
     console.error('data.json読み込みエラー:', error);
     return defaultData();
@@ -130,7 +134,9 @@ function saveData() {
       fs.writeFileSync(temp, JSON.stringify(data, null, 2), {
         mode: 0o600
       });
+
       fs.renameSync(temp, DATA_FILE);
+
     } catch (error) {
       console.error('保存エラー:', error);
     }
@@ -228,13 +234,11 @@ function broadcastUsers(roomId) {
 function validAvatarUrl(url) {
   if (typeof url !== 'string' || url.length > 1000) return false;
 
-  // 空文字ならアイコンをリセット
+  // アイコンのリセットを許可
   if (url === '') return true;
 
-  // 自分のサーバーにアップロードした画像
   if (/^\/uploads\/[a-zA-Z0-9._-]+$/.test(url)) return true;
 
-  // 外部URLはHTTPSのみ許可
   try {
     const parsed = new URL(url);
     return parsed.protocol === 'https:';
@@ -253,6 +257,7 @@ app.get('/', (_req, res) => {
 
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     cb(null, crypto.randomUUID() + ext);
@@ -262,8 +267,11 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 25 * 1024 * 1024 },
+
   fileFilter: (_req, file, cb) => {
-    const allowed = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|webm|ogg))$/;
+    const allowed =
+      /^(image\/(jpeg|png|gif|webp)|video\/(mp4|webm|ogg))$/;
+
     cb(null, allowed.test(file.mimetype));
   }
 });
@@ -271,6 +279,7 @@ const upload = multer({
 const avatarUpload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
+
   fileFilter: (_req, file, cb) => {
     cb(null, /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype));
   }
@@ -289,9 +298,14 @@ function handleUpload(middleware, req, res, next) {
 
     if (!user) {
       if (req.file) {
-        try { fs.unlinkSync(req.file.path); } catch (_) {}
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (_) {}
       }
-      return res.status(401).json({ error: 'ログイン状態を確認できません' });
+
+      return res.status(401).json({
+        error: 'ログイン状態を確認できません'
+      });
     }
 
     next(user);
@@ -300,7 +314,9 @@ function handleUpload(middleware, req, res, next) {
 
 app.post('/api/upload', (req, res) => {
   handleUpload(upload, req, res, user => {
-    if (!req.file) return res.status(400).json({ error: 'ファイルがありません' });
+    if (!req.file) {
+      return res.status(400).json({ error: 'ファイルがありません' });
+    }
 
     res.json({
       url: '/uploads/' + req.file.filename,
@@ -312,11 +328,15 @@ app.post('/api/upload', (req, res) => {
 
 app.post('/api/avatar', (req, res) => {
   handleUpload(avatarUpload, req, res, user => {
-    if (!req.file) return res.status(400).json({ error: '画像を選択してください' });
+    if (!req.file) {
+      return res.status(400).json({ error: '画像を選択してください' });
+    }
 
     const url = '/uploads/' + req.file.filename;
+
     user.avatarUrl = url;
     data.avatarByUsername[user.username.toLowerCase()] = url;
+
     saveData();
 
     io.emit('profile_updated', {
@@ -339,15 +359,19 @@ app.post('/api/ai', async (req, res) => {
     ? req.body.prompt.trim().slice(0, 2000)
     : '';
 
-  if (!prompt) return res.status(400).json({ error: '質問を入力してください' });
+  if (!prompt) {
+    return res.status(400).json({ error: '質問を入力してください' });
+  }
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
+
       headers: {
         Authorization: `Bearer ${AI_API_KEY}`,
         'Content-Type': 'application/json'
       },
+
       body: JSON.stringify({
         model: AI_MODEL,
         messages: [
@@ -365,20 +389,28 @@ app.post('/api/ai', async (req, res) => {
 
     if (!response.ok) {
       console.error('AI API error:', result);
-      return res.status(502).json({ error: 'AIから返答を取得できませんでした' });
+
+      return res.status(502).json({
+        error: 'AIから返答を取得できませんでした'
+      });
     }
 
     res.json({
       answer: result.choices?.[0]?.message?.content || '返答がありません'
     });
+
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'AI通信エラー' });
+
+    res.status(500).json({
+      error: 'AI通信エラー'
+    });
   }
 });
 
 io.on('connection', socket => {
 
+  // 入室
   socket.on('join', payload => {
     if (users.has(socket.id)) return;
 
@@ -386,10 +418,15 @@ io.on('connection', socket => {
     const roomId = String(payload?.roomId || 'lobby');
     const roomPassword = String(payload?.roomPassword || '');
 
-    if (!username) return socket.emit('login_error', 'ユーザー名を入力してください');
+    if (!username) {
+      return socket.emit('login_error', 'ユーザー名を入力してください');
+    }
 
     const room = roomById(roomId);
-    if (!room) return socket.emit('login_error', 'ルームが見つかりません');
+
+    if (!room) {
+      return socket.emit('login_error', 'ルームが見つかりません');
+    }
 
     if (
       room.passwordHash &&
@@ -413,13 +450,17 @@ io.on('connection', socket => {
       }
 
       io.to(id).emit('system_message', 'Ownerが再ログインしました');
+
       users.delete(id);
       io.in(id).disconnectSockets(true);
     }
 
     let role = isOwner ? 'Owner' : data.rolesByUsername[key];
 
-    if (!ROLES.includes(role) || role === 'Owner') role = 'Regular';
+    if (!ROLES.includes(role) || role === 'Owner') {
+      role = 'Regular';
+    }
+
     if (isOwner) role = 'Owner';
 
     const user = {
@@ -446,28 +487,40 @@ io.on('connection', socket => {
     });
 
     broadcastUsers(roomId);
-    io.to(roomId).emit('system_message', `${username} が入室しました`);
+
+    io.to(roomId).emit(
+      'system_message',
+      `${username} が入室しました`
+    );
   });
 
+  // Ownerの権限データ取得
   socket.on('get_permissions', () => {
     const user = users.get(socket.id);
+
     if (!user || user.role !== 'Owner') return;
 
     socket.emit('permissions_data', data.permissions);
   });
 
+  // プロフィールアイコン変更
   socket.on('set_avatar', payload => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     const url = String(payload?.url || '');
 
     if (!validAvatarUrl(url)) {
-      return notify(socket, '画像URLはHTTPS、またはアップロード画像を指定してください');
+      return notify(
+        socket,
+        '画像URLはHTTPS、またはアップロード画像を指定してください'
+      );
     }
 
     user.avatarUrl = url;
     data.avatarByUsername[user.username.toLowerCase()] = url;
+
     saveData();
 
     io.emit('profile_updated', {
@@ -478,8 +531,10 @@ io.on('connection', socket => {
     notify(socket, 'プロフィールアイコンを変更しました');
   });
 
+  // メッセージ送信
   socket.on('chat_message', raw => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     if (data.chatLocked && user.role !== 'Owner') {
@@ -493,13 +548,16 @@ io.on('connection', socket => {
     if (typeof raw !== 'string') return;
 
     const text = raw.trim().slice(0, 1000);
+
     if (!text) return;
 
     if (Date.now() - user.lastMessage < data.slowMode * 1000) {
       return notify(socket, `あと${data.slowMode}秒待ってください`);
     }
 
-    if (data.ngWords.some(word => text.toLowerCase().includes(word.toLowerCase()))) {
+    if (data.ngWords.some(word =>
+      text.toLowerCase().includes(word.toLowerCase())
+    )) {
       return notify(socket, 'NGワードが含まれています');
     }
 
@@ -517,13 +575,16 @@ io.on('connection', socket => {
 
     data.messages.push(message);
     data.messages = data.messages.slice(-500);
+
     saveData();
 
     io.to(user.roomId).emit('chat_message', message);
   });
 
+  // 画像・動画メッセージ
   socket.on('media_message', payload => {
     const user = users.get(socket.id);
+
     if (!user || !payload || typeof payload.url !== 'string') return;
 
     if (!/^\/uploads\/[a-zA-Z0-9._-]+$/.test(payload.url)) return;
@@ -545,26 +606,36 @@ io.on('connection', socket => {
 
     data.messages.push(message);
     data.messages = data.messages.slice(-500);
+
     saveData();
 
     io.to(user.roomId).emit('chat_message', message);
   });
 
+  // ルーム作成
   socket.on('create_room', payload => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     const name = String(payload?.name || '').trim().slice(0, 30);
     const password = String(payload?.password || '');
 
     if (!name) return notify(socket, 'ルーム名を入力してください');
-    if (data.rooms.length >= 50) return notify(socket, 'ルーム数の上限です');
 
-    if (data.rooms.some(r => r.name.toLowerCase() === name.toLowerCase())) {
+    if (data.rooms.length >= 50) {
+      return notify(socket, 'ルーム数の上限です');
+    }
+
+    if (data.rooms.some(r =>
+      r.name.toLowerCase() === name.toLowerCase()
+    )) {
       return notify(socket, '同じ名前のルームがあります');
     }
 
-    if (password.length > 100) return notify(socket, 'パスワードが長すぎます');
+    if (password.length > 100) {
+      return notify(socket, 'パスワードが長すぎます');
+    }
 
     data.rooms.push({
       id: crypto.randomUUID(),
@@ -573,16 +644,23 @@ io.on('connection', socket => {
     });
 
     saveData();
+
     io.emit('rooms_updated', publicRooms());
+
     notify(socket, 'ルームを作成しました');
   });
 
+  // ルーム移動
   socket.on('switch_room', payload => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     const room = roomById(String(payload?.roomId || ''));
-    if (!room) return notify(socket, 'ルームが見つかりません');
+
+    if (!room) {
+      return notify(socket, 'ルームが見つかりません');
+    }
 
     const password = String(payload?.password || '');
 
@@ -596,7 +674,9 @@ io.on('connection', socket => {
     const oldRoom = user.roomId;
 
     socket.leave(oldRoom);
+
     user.roomId = room.id;
+
     socket.join(room.id);
 
     broadcastUsers(oldRoom);
@@ -608,11 +688,16 @@ io.on('connection', socket => {
       messages: roomMessages(room.id)
     });
 
-    io.to(room.id).emit('system_message', `${user.username} が入室しました`);
+    io.to(room.id).emit(
+      'system_message',
+      `${user.username} が入室しました`
+    );
   });
 
+  // 管理操作
   socket.on('admin_action', payload => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     const action = String(payload?.action || '');
@@ -621,7 +706,9 @@ io.on('connection', socket => {
 
     // ランク変更はOwner専用
     if (action === 'rank') {
-      if (user.role !== 'Owner') return notify(socket, 'ランク変更はOwner専用です');
+      if (user.role !== 'Owner') {
+        return notify(socket, 'ランク変更はOwner専用です');
+      }
 
       if (!target || !ROLES.includes(value) || value === 'Owner') {
         return notify(socket, '設定内容が無効です');
@@ -630,11 +717,16 @@ io.on('connection', socket => {
       const found = findUser(target);
 
       if (!found || found.user.role === 'Owner') {
-        return notify(socket, '対象ユーザーが見つからないか変更できません');
+        return notify(
+          socket,
+          '対象ユーザーが見つからないか変更できません'
+        );
       }
 
       found.user.role = value;
+
       data.rolesByUsername[found.user.username.toLowerCase()] = value;
+
       saveData();
 
       io.to(found.id).emit('role_updated', {
@@ -644,12 +736,18 @@ io.on('connection', socket => {
       });
 
       broadcastUsers(found.user.roomId);
-      return notify(socket, `${target} のランクを ${value} に変更しました`);
+
+      return notify(
+        socket,
+        `${target} のランクを ${value} に変更しました`
+      );
     }
 
     // 権限設定はOwner専用
     if (action === 'set_permissions') {
-      if (user.role !== 'Owner') return notify(socket, '権限設定はOwner専用です');
+      if (user.role !== 'Owner') {
+        return notify(socket, '権限設定はOwner専用です');
+      }
 
       const role = payload.role;
 
@@ -658,7 +756,8 @@ io.on('connection', socket => {
       }
 
       for (const key of PERMISSION_KEYS) {
-        data.permissions[role][key] = payload.permissions?.[key] === true;
+        data.permissions[role][key] =
+          payload.permissions?.[key] === true;
       }
 
       data.permissions.Owner = { ...DEFAULT_PERMISSIONS.Owner };
@@ -666,6 +765,7 @@ io.on('connection', socket => {
 
       saveData();
 
+      // 接続中のユーザーに新しい権限を配信
       for (const [id, connected] of users.entries()) {
         io.to(id).emit('permissions_updated', {
           role: connected.role,
@@ -673,14 +773,20 @@ io.on('connection', socket => {
         });
       }
 
-      return notify(socket, `${role} の権限設定を保存しました`);
+      // Ownerの編集画面にも全ランク分の最新設定を返す
+      socket.emit('permissions_data', data.permissions);
+
+      return notify(
+        socket,
+        `${role} の権限設定を保存しました`
+      );
     }
 
     if (!PERMISSION_KEYS.includes(action)) {
       return notify(socket, '不明な管理操作です');
     }
 
-    // すべての管理操作をサーバー側で権限確認
+    // サーバー側で権限確認
     if (!hasPermission(user, action)) {
       return notify(socket, 'この操作を実行する権限がありません');
     }
@@ -692,24 +798,37 @@ io.on('connection', socket => {
         found.user.role === 'Owner' ||
         roleLevel(found.user.role) >= roleLevel(user.role)
       ) {
-        return notify(socket, '自分と同じか上位ランクのユーザーには実行できません');
+        return notify(
+          socket,
+          '自分と同じか上位ランクのユーザーには実行できません'
+        );
       }
     }
 
     switch (action) {
       case 'kick': {
-        if (!found) return notify(socket, 'ユーザーが見つかりません');
+        if (!found) {
+          return notify(socket, 'ユーザーが見つかりません');
+        }
 
         const oldRoom = found.user.roomId;
-        io.to(found.id).emit('system_message', '管理者にキックされました');
+
+        io.to(found.id).emit(
+          'system_message',
+          '管理者にキックされました'
+        );
+
         users.delete(found.id);
         io.in(found.id).disconnectSockets(true);
+
         broadcastUsers(oldRoom);
         break;
       }
 
       case 'ban': {
-        if (!target) return notify(socket, '対象ユーザーを入力してください');
+        if (!target) {
+          return notify(socket, '対象ユーザーを入力してください');
+        }
 
         if (!data.bannedUsers.includes(target.toLowerCase())) {
           data.bannedUsers.push(target.toLowerCase());
@@ -717,9 +836,12 @@ io.on('connection', socket => {
 
         if (found) {
           const oldRoom = found.user.roomId;
+
           io.to(found.id).emit('system_message', 'BANされました');
+
           users.delete(found.id);
           io.in(found.id).disconnectSockets(true);
+
           broadcastUsers(oldRoom);
         }
 
@@ -728,32 +850,44 @@ io.on('connection', socket => {
       }
 
       case 'unban':
-        data.bannedUsers = data.bannedUsers.filter(x => x !== target.toLowerCase());
+        data.bannedUsers = data.bannedUsers.filter(
+          x => x !== target.toLowerCase()
+        );
+
         saveData();
         break;
 
       case 'mute':
-        if (!found) return notify(socket, 'ユーザーが見つかりません');
+        if (!found) {
+          return notify(socket, 'ユーザーが見つかりません');
+        }
+
         if (!data.mutedUsers.includes(target.toLowerCase())) {
           data.mutedUsers.push(target.toLowerCase());
         }
+
         saveData();
         break;
 
       case 'unmute':
-        data.mutedUsers = data.mutedUsers.filter(x => x !== target.toLowerCase());
+        data.mutedUsers = data.mutedUsers.filter(
+          x => x !== target.toLowerCase()
+        );
+
         saveData();
         break;
 
       case 'lock':
         data.chatLocked = true;
         saveData();
+
         io.emit('system_message', 'チャットがロックされました');
         break;
 
       case 'unlock':
         data.chatLocked = false;
         saveData();
+
         io.emit('system_message', 'チャットのロックが解除されました');
         break;
 
@@ -764,20 +898,34 @@ io.on('connection', socket => {
 
       case 'pin':
         data.pinnedMessage = String(value || '').trim().slice(0, 500);
-        io.to(user.roomId).emit('pinned_message', data.pinnedMessage);
+
+        io.to(user.roomId).emit(
+          'pinned_message',
+          data.pinnedMessage
+        );
+
         saveData();
         break;
 
       case 'unpin':
         data.pinnedMessage = null;
+
         io.to(user.roomId).emit('pinned_message', null);
+
         saveData();
         break;
 
       case 'ng_add': {
         const word = String(value || '').trim().slice(0, 50);
-        if (!word) return notify(socket, 'NGワードを入力してください');
-        if (!data.ngWords.includes(word)) data.ngWords.push(word);
+
+        if (!word) {
+          return notify(socket, 'NGワードを入力してください');
+        }
+
+        if (!data.ngWords.includes(word)) {
+          data.ngWords.push(word);
+        }
+
         saveData();
         break;
       }
@@ -786,23 +934,34 @@ io.on('connection', socket => {
         data.ngWords = data.ngWords.filter(
           word => word.toLowerCase() !== String(value || '').toLowerCase()
         );
+
         saveData();
         break;
 
       case 'clear':
-        data.messages = data.messages.filter(m => m.roomId !== user.roomId);
+        data.messages = data.messages.filter(
+          m => m.roomId !== user.roomId
+        );
+
         io.to(user.roomId).emit('clear_messages');
+
         saveData();
         break;
     }
 
-    logAction(user.username, action.toUpperCase(), target || String(value || ''));
+    logAction(
+      user.username,
+      action.toUpperCase(),
+      target || String(value || '')
+    );
+
     notify(socket, '管理操作を実行しました');
   });
 
   // WebRTCのシグナリング
   socket.on('call_join', () => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     socket.to(user.roomId).emit('call_peer_joined', {
@@ -813,9 +972,11 @@ io.on('connection', socket => {
 
   socket.on('webrtc_signal', payload => {
     const user = users.get(socket.id);
+
     if (!user || typeof payload?.to !== 'string') return;
 
     const target = users.get(payload.to);
+
     if (!target || target.roomId !== user.roomId) return;
 
     io.to(payload.to).emit('webrtc_signal', {
@@ -826,16 +987,26 @@ io.on('connection', socket => {
 
   socket.on('call_leave', () => {
     const user = users.get(socket.id);
-    if (user) socket.to(user.roomId).emit('call_peer_left', socket.id);
+
+    if (user) {
+      socket.to(user.roomId).emit('call_peer_left', socket.id);
+    }
   });
 
   socket.on('disconnect', () => {
     const user = users.get(socket.id);
+
     if (!user) return;
 
     users.delete(socket.id);
-    socket.to(user.roomId).emit('system_message', `${user.username} が退室しました`);
+
+    socket.to(user.roomId).emit(
+      'system_message',
+      `${user.username} が退室しました`
+    );
+
     broadcastUsers(user.roomId);
+
     socket.to(user.roomId).emit('call_peer_left', socket.id);
   });
 });
