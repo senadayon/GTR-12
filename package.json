@@ -1,14 +1,15 @@
 {
   "name": "minnit-style-chat",
-  "version": "1.0.0",
-  "description": "暇潰しチャット",
+  "version": "2.0.0",
+  "description": "MINNIT CHAT",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "multer": "^2.0.2"
   },
   "engines": {
     "node": ">=18"
